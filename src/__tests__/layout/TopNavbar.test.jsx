@@ -54,4 +54,23 @@ describe('TopNavbar Component', () => {
 
     expect(handleLogout).toHaveBeenCalledTimes(1);
   });
+
+  it('closes notifications dropdown when clicking outside', () => {
+    render(
+      <div>
+        <div data-testid="outside-area">Outside</div>
+        <TopNavbar />
+      </div>
+    );
+
+    const bellBtn = screen.getByTitle('Theft & Security Alerts');
+    fireEvent.click(bellBtn);
+
+    expect(screen.getByText('Security Alerts')).toBeInTheDocument();
+
+    // Click outside
+    fireEvent.mouseDown(screen.getByTestId('outside-area'));
+
+    expect(screen.queryByText('Security Alerts')).not.toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Menu,
   Bell,
@@ -34,6 +34,23 @@ const NOTIFICATIONS = [
 export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
+  const profileRef = useRef(null);
+
+  // Close notifications or profile dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
+        setNotificationsOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const username = user?.username || 'Manish';
   const userInitials = username.slice(0, 2).toUpperCase();
@@ -68,7 +85,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
       <div className="flex items-center gap-2.5 sm:gap-4">
 
         {/* Notification Bell */}
-        <div className="relative">
+        <div ref={notificationsRef} className="relative">
           <button
             onClick={() => setNotificationsOpen(!notificationsOpen)}
             className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-colors relative cursor-pointer shadow-2xs"
@@ -142,7 +159,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                         <div className="flex items-center gap-1 text-slate-600 truncate min-w-0">
                           <Store className="w-3 h-3 text-[#00a8e7] shrink-0" />
                           <span className="truncate">
-                            <strong className="text-slate-900 font-semibold">{item.storeCode}</strong> - {item.storeName}
+                            <strong className="text-slate-900 font-semibold">{item.storeCode} - {item.storeName}</strong>
                           </span>
                         </div>
 
@@ -160,7 +177,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         </div>
 
         {/* User Profile Menu */}
-        <div className="relative">
+        <div ref={profileRef} className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}
             className="flex items-center gap-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"

@@ -905,7 +905,140 @@ While this rendered without breaking on compact laptop viewports (e.g. 768px hei
 
 ---
 
-## 27. Summary & Architectural Takeaways
+## 28. Challenge 26: Outside-Click Dismissal Architecture for Top Navbar Popovers
+
+### The Problem
+When operators opened the Security Alerts notification popover in `TopNavbar.jsx`, the popup could only be dismissed by re-clicking the bell button icon itself. Clicking anywhere else on the dashboard backdrop, reports table, or side margins did not dismiss the dropdown, leading to accidental UI obstruction while navigating.
+
+### Technical Solution
+1. **Document-Level Outside Click Listener (`TopNavbar.jsx`)**:
+   Introduced `useRef` for both the notifications dropdown and profile menu, combined with a `mousedown` event listener registered to `document`:
+   ```javascript
+   const notificationsRef = useRef(null);
+   const profileRef = useRef(null);
+
+   useEffect(() => {
+     const handleClickOutside = (e) => {
+       if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
+         setNotificationsOpen(false);
+       }
+       if (profileRef.current && !profileRef.current.contains(e.target)) {
+         setProfileOpen(false);
+       }
+     };
+
+     document.addEventListener('mousedown', handleClickOutside);
+     return () => document.removeEventListener('mousedown', handleClickOutside);
+   }, []);
+   ```
+2. **Automated Unit Testing (`src/__tests__/layout/TopNavbar.test.jsx`)**:
+   Added a dedicated unit test asserting that opening the notification window and triggering a `mousedown` event outside of its boundary immediately dismisses the popover.
+3. **Build & Quality Parity**:
+   - `npm test`: **69 tests passing across all 21 test suites (100% green)**.
+   - `npx oxlint`: **0 warnings, 0 errors**.
+   - `npm run build`: Synchronized production build for IIS in `dist/`.
+
+---
+
+## 30. Challenge 27: Controlled Datepicker Dismissal Architecture with Explicit Close & Apply Actions
+
+### The Problem
+In earlier implementations of `DateFilter.jsx`, the custom datepicker popover automatically closed whenever the user clicked outside or immediately after selecting a date range. This caused friction for operators who:
+1. Accompany date picking with mouse movements that accidentally triggered outside dismissal before reviewing the selected date range.
+2. Desired explicit control over confirming date intervals (via **Apply**), dismissing changes (via **Close** or **Cancel**), or toggling the calendar by re-clicking the trigger button.
+
+### Technical Solution
+1. **Removed Automatic Outside-Click Dismissal (`DateFilter.jsx`)**:
+   De-registered the generic `mousedown` outside click listener so that date selection remains steady and open while operators inspect options.
+2. **Integrated Dual Close Controls**:
+   - **Header Close Button (`X`)**: An accessible close icon placed in the top-right of the popover header.
+   - **Footer Close / Cancel Button**: A secondary action button (`Close`) beside the primary `Apply` button.
+3. **Trigger Button Toggle**:
+   Re-clicking the date input trigger button toggles the popover between open and closed states (`onClick={() => setIsOpen(!isOpen)}`).
+4. **Persistent Open State on Preset Clicks**:
+   Clicking preset options (`Today`, `Yesterday`, `Last 7 Days`, `This Month`, `Last 30 Days`) dynamically filters the date selection in real time without closing the popover, allowing the user to inspect the highlighted calendar dates or change choices freely.
+5. **Explicit Apply Confirmation**:
+   Custom date ranges only commit and dismiss the popover when the operator clicks the **Apply** button.
+6. **Comprehensive Vitest Suite (`src/__tests__/common/DateFilter.test.jsx`)**:
+   Expanded unit test coverage to assert:
+   - Dismissal via header `X` button and footer `Close` button.
+   - Toggle behavior on trigger button clicks.
+   - Application of custom date ranges on `Apply` click.
+   - Presets updating filtered date range while keeping the datepicker open.
+   - 100% green tests across all 6 test cases in the suite.
+7. **Build Parity**:
+   Executed `npm run build` to update `dist/` bundle for IIS deployment.
+
+---
+
+## 32. Challenge 28: Standardized DD-MM-YYYY Date Formatting & Calendar Visual Hierarchy
+
+### The Problem
+Date representations previously utilized textual month abbreviations (e.g. `10 Sep 2026 → 16 Sep 2026`). Organizational operational standards require strictly uniform **`DD-MM-YYYY`** numerical notation across all date displays, badges, calendar summary intervals, and reports. Additionally, the footer **Close** button lacked sufficient background contrast, appearing as plain white with a thin border.
+
+### Technical Solution
+1. **Global `formatDate` Numerical Standard (`src/utils/filterConstants.js`)**:
+   Standardized `formatDate` to output two-digit zero-padded day, month, and four-digit year:
+   ```javascript
+   export const formatDate = (date) => {
+     if (!date) return '';
+     const d = new Date(date);
+     const day = String(d.getDate()).padStart(2, '0');
+     const month = String(d.getMonth() + 1).padStart(2, '0');
+     const year = d.getFullYear();
+     return `${day}-${month}-${year}`;
+   };
+   ```
+2. **Prominent Selected Date Range Highlighting (`DateFilter.jsx`)**:
+   Enclosed the active date range in dedicated `bg-sky-50 text-[#007ba8] border border-sky-200/80` pill badges with bold typography (`DD-MM-YYYY → DD-MM-YYYY`).
+3. **High-Contrast Gray Close Buttons**:
+   Styled the Close buttons (both header icon and footer button) with `bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-300/80` to provide clear visual distinction from the primary blue `Apply` button.
+4. **Enhanced React Datepicker Selection CSS (`src/index.css`)**:
+   Added glowing cyan active states (`box-shadow: 0 2px 6px rgba(0, 168, 231, 0.4)`), soft sky in-range spans (`bg-[#e0f2fe] text-[#0369a1]`), and bold borders on today's date for unmistakable visual hierarchy.
+5. **Quality & Test Coverage**:
+   - `npm test`: **72 tests passing across all 21 test suites (100% green)**.
+   - `npx oxlint`: **0 warnings, 0 errors**.
+   - `npm run build`: Production bundle updated in `dist/`.
+
+---
+
+## 33. Challenge 29: Single Date Value Representation for Identical Start and End Dates
+
+### The Problem
+When the user selected **"Today"**, **"Yesterday"**, or a single individual day in the datepicker, the popover footer and output label displayed a redundant date range in the form of `16-09-2026 → 16-09-2026` or `16-09-2026 - 16-09-2026`. Operators expected a single, concise date value (e.g. `16-09-2026`) when the start date and end date are the same.
+
+### Technical Solution
+1. **Conditional Single-Date Footer Preview (`DateFilter.jsx`)**:
+   Updated the footer badge rendering so the separator arrow `→` and second date pill only appear when `endDate && formatDate(startDate) !== formatDate(endDate)`:
+   ```jsx
+   <span className="font-bold text-[#007ba8] bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md text-[11.5px] shadow-2xs">
+     {formatDate(startDate)}
+   </span>
+   {endDate && formatDate(startDate) !== formatDate(endDate) && (
+     <>
+       <span className="text-slate-400 font-semibold">→</span>
+       <span className="font-bold text-[#007ba8] bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md text-[11.5px] shadow-2xs">
+         {formatDate(endDate)}
+       </span>
+     </>
+   )}
+   ```
+2. **Normalized `handleApplyRange` Output**:
+   Ensured that clicking **Apply** formats and emits a single date string `formatDate(startDate)` whenever `!endDate || formatDate(startDate) === formatDate(endDate)`:
+   ```javascript
+   const isSingleDay = !endDate || formatDate(startDate) === formatDate(endDate);
+   const formatted = isSingleDay
+     ? formatDate(startDate)
+     : `${formatDate(startDate)} - ${formatDate(endDate)}`;
+   ```
+3. **Vitest Unit Test Verification (`src/__tests__/common/DateFilter.test.jsx`)**:
+   Added a test asserting that for same-day selection (such as Today), the footer omits the `→` arrow and passes a single `DD-MM-YYYY` date string to `onDateChange`.
+4. **All Tests Passing**:
+   All 73 unit tests across 21 suites passing (100% green).
+
+---
+
+## 34. Summary & Architectural Takeaways
 
 | Feature / Area | Initial Challenge | Final Solution | Architectural Benefit |
 | :--- | :--- | :--- | :--- |
@@ -929,12 +1062,16 @@ While this rendered without breaking on compact laptop viewports (e.g. 768px hei
 | **Streamlined Export** | Redundant CSV option cluttered export menu | Focused on Excel (.xlsx), isolated Print/PDF, and JSON | Streamlined operational workflows without format confusion |
 | **Visual Aesthetics** | Generic flat panels without identity | Dual-tone 2px borders, themed gradient headers, live ping dots | Distinct, cohesive security-themed design system |
 | **Data Integrity** | Unformatted amounts, trailing hyphens, copy clutter | Indian currency formatting, conditional strings, clean chips | High operational trust and zero UI glitches |
-| **Test Automation Suite** | Zero automated tests; risk of regressions in 20 components | Vitest + React Testing Library + JSDOM suite across all 20 components + App root | 100% green tests (21/21 files, 68/68 tests), 0 linter errors, production build verified |
+| **Test Automation Suite** | Zero automated tests; risk of regressions in 20 components | Vitest + React Testing Library + JSDOM suite across all 20 components + App root | 100% green tests (21/21 files, 73/73 tests), 0 linter errors, production build verified |
 | **Webpage Scrollbar** | Main window had default wide, blocky OS scrollbar | Global `::-webkit-scrollbar` & W3C `thin` applied to `html`, `body` | Seamless visual parity between webpage and interior cards |
 | **Alert Notifications** | Generic abstract labels without actionable product details | Article description as main title, Article No, Store Code & Name, Time | Instant, actionable incident context directly from top navbar |
 | **Microsoft IIS Hosting** | Deep route refreshes produce 404 errors on IIS | `public/web.config` with URL Rewrite rule and static MIME mappings | Flawless production SPA routing, zero 404s on refresh, auto-packaged in `dist` |
 | **Default Auth Guard** | Initialized `isAuthenticated: true` bypassed login for network users | Storage-backed initializer defaulting to false; protected routing | Zero unauthorized bypass; every new user/device begins at Login |
 | **Responsive Card Heights** | Fixed 350px left large blank space; 295px caused window scrollbar | Calibrated `lg:h-[calc(100vh-345px)] lg:min-h-[400px]` with `items-stretch` | Full screen utilization, footer completely visible above fold, zero outer scrollbar |
+| **Outside-Click Dismissal** | Popovers stayed open until re-clicking bell button icon | `mousedown` event listener via `useRef` auto-dismisses on outside click | Seamless UX, zero lingering popovers, clean uncluttered navigation |
+| **Controlled Datepicker** | Datepicker closed prematurely on outside clicks or mid-range | Removed auto-outside click, added Close buttons (`X` & Footer), Apply required | Deliberate date selection, zero accidental dismissals, full user control |
+| **DD-MM-YYYY Standard** | Inconsistent date string abbreviations | `DD-MM-YYYY` standard across all components, highlighted pills, gray Close button | Clean visual hierarchy, prominent date ranges, seamless interaction |
+| **Single Date Output** | Redundant `X → X` or `X - X` for single day or Today | Emits and displays single `DD-MM-YYYY` value when startDate === endDate | Concise UI, clean data emission, zero visual redundancy |
 
 
 

@@ -211,14 +211,21 @@
 .react-datepicker__day--range-end {
   background-color: #00a8e7 !important;
   color: #ffffff !important;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
   border-radius: 0.375rem !important;
+  box-shadow: 0 2px 6px rgba(0, 168, 231, 0.4) !important;
 }
 
 .react-datepicker__day--in-range:not(.react-datepicker__day--range-start):not(.react-datepicker__day--range-end) {
-  background-color: rgba(0, 168, 231, 0.15) !important;
-  color: #0084b6 !important;
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+  font-weight: 700 !important;
   border-radius: 0 !important;
+}
+
+.react-datepicker__day--today {
+  font-weight: 800 !important;
+  border: 1.5px solid #00a8e7 !important;
 }
 
 .react-datepicker__day--keyboard-selected {

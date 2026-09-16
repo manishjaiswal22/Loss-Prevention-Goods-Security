@@ -1,13 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Calendar, ChevronDown, Check, RotateCcw } from 'lucide-react';
+import { Calendar, ChevronDown, Check, RotateCcw, X } from 'lucide-react';
 import { DATE_PRESETS, formatDate } from '../../utils/filterConstants';
 
-/**
- * DateFilter Component
- * Standalone, reusable dropdown component for date preset and custom range selection.
- */
 export default function DateFilter({
   selectedDate: controlledDate,
   defaultDate = 'Today',
@@ -18,26 +14,14 @@ export default function DateFilter({
   const [isOpen, setIsOpen] = useState(false);
   const [dateRange, setDateRange] = useState([new Date(), new Date()]);
   const [startDate, endDate] = dateRange;
-  const dropdownRef = useRef(null);
 
   const currentDateLabel = controlledDate !== undefined ? controlledDate : internalDate;
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Preset Selection Handler
+  // Preset Selection Handler (applies selection and closes)
   const handleSelectPreset = (preset) => {
     const today = new Date();
-    let start = new Date();
-    let end = new Date();
+    let start = today;
+    let end = today;
 
     if (preset === 'Today') {
       start = today;
@@ -66,7 +50,6 @@ export default function DateFilter({
     if (controlledDate === undefined) {
       setInternalDate(preset);
     }
-    setIsOpen(false);
 
     if (onDateChange) {
       onDateChange(preset, { startDate: start, endDate: end, preset });
@@ -77,27 +60,15 @@ export default function DateFilter({
   const handleDatePickerChange = (update) => {
     const [start, end] = update;
     setDateRange([start, end]);
-
-    // If both dates in range are selected, automatically apply
-    if (start && end) {
-      const formatted = `${formatDate(start)} - ${formatDate(end)}`;
-      if (controlledDate === undefined) {
-        setInternalDate(formatted);
-      }
-      setIsOpen(false);
-
-      if (onDateChange) {
-        onDateChange(formatted, { startDate: start, endDate: end });
-      }
-    }
   };
 
-  // Manual Apply for single or custom selection
+  // Manual Apply for custom selection
   const handleApplyRange = () => {
     if (!startDate) return;
-    const formatted = endDate
-      ? `${formatDate(startDate)} - ${formatDate(endDate)}`
-      : formatDate(startDate);
+    const isSingleDay = !endDate || formatDate(startDate) === formatDate(endDate);
+    const formatted = isSingleDay
+      ? formatDate(startDate)
+      : `${formatDate(startDate)} - ${formatDate(endDate)}`;
 
     if (controlledDate === undefined) {
       setInternalDate(formatted);
@@ -110,8 +81,8 @@ export default function DateFilter({
   };
 
   return (
-    <div ref={dropdownRef} className={`relative inline-block ${className}`}>
-      {/* Date Range Button */}
+    <div className={`relative inline-block ${className}`}>
+      {/* Date Range Trigger Button - Clicking toggles open/close */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -121,7 +92,11 @@ export default function DateFilter({
       >
         <Calendar className="w-3.5 h-3.5 text-[#00a8e7] shrink-0" />
         <span>{currentDateLabel}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        />
       </button>
 
       {/* React DatePicker Popover */}
@@ -155,14 +130,25 @@ export default function DateFilter({
           <div className="p-3 flex flex-col flex-1 min-w-[270px]">
             <div className="w-full flex items-center justify-between pb-2 mb-1 border-b border-slate-100 text-xs text-slate-600">
               <span className="font-semibold text-slate-800 text-[11.5px]">Select Custom Range</span>
-              <button
-                type="button"
-                onClick={() => handleSelectPreset('Today')}
-                className="text-[#00a8e7] hover:underline flex items-center gap-1 text-[11px] font-medium cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Today
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectPreset('Today')}
+                  className="text-[#00a8e7] hover:underline flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 text-slate-500 bg-slate-100 hover:bg-slate-200 hover:text-slate-800 rounded-md transition-colors cursor-pointer border border-slate-200/80"
+                  title="Close Datepicker"
+                  aria-label="Close Datepicker"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <div className="w-full flex justify-center py-1">
@@ -176,20 +162,44 @@ export default function DateFilter({
               />
             </div>
 
-            {/* Apply Button (useful if selecting single date) */}
-            <div className="w-full pt-2 border-t border-slate-100 mt-1 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-500 truncate">
-                {startDate ? formatDate(startDate) : 'Start Date'}
-                {endDate ? ` → ${formatDate(endDate)}` : ''}
-              </span>
-              <button
-                type="button"
-                onClick={handleApplyRange}
-                disabled={!startDate}
-                className="px-3 py-1 bg-[#00a8e7] hover:bg-[#0092c8] disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
-              >
-                Apply
-              </button>
+            {/* Footer with Highlighted Date Range in DD-MM-YYYY, Gray Close Button, and Apply Button */}
+            <div className="w-full pt-2.5 border-t border-slate-100 mt-1.5 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-700 truncate min-w-0 font-medium">
+                {startDate ? (
+                  <>
+                    <span className="font-bold text-[#007ba8] bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md text-[11.5px] shadow-2xs">
+                      {formatDate(startDate)}
+                    </span>
+                    {endDate && formatDate(startDate) !== formatDate(endDate) && (
+                      <>
+                        <span className="text-slate-400 font-semibold">→</span>
+                        <span className="font-bold text-[#007ba8] bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-md text-[11.5px] shadow-2xs">
+                          {formatDate(endDate)}
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-[11.5px] text-slate-400 font-normal">Select date range</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-lg transition-colors cursor-pointer border border-slate-300/80 shadow-2xs"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyRange}
+                  disabled={!startDate}
+                  className="px-4 py-1.5 bg-[#00a8e7] hover:bg-[#0092c8] active:bg-[#007ba8] disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+                >
+                  Apply
+                </button>
+              </div>
             </div>
           </div>
         </div>

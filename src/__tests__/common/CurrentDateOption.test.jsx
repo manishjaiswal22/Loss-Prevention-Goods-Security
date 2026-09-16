@@ -4,9 +4,10 @@ import { describe, it, expect } from 'vitest';
 import CurrentDateOption from '../../components/common/CurrentDateOption';
 
 describe('CurrentDateOption Component', () => {
-  it('renders date indicator with "Today" live pill', () => {
+  it('renders date indicator with "Today" live pill in DD-MM-YYYY format', () => {
     render(<CurrentDateOption date={new Date(2026, 8, 15)} />);
 
+    expect(screen.getByText('15-09-2026')).toBeInTheDocument();
     expect(screen.getByText('Today')).toBeInTheDocument();
   });
 
