@@ -870,7 +870,42 @@ Production requirements mandated:
 
 ---
 
-## 26. Summary & Architectural Takeaways
+## 26. Challenge 25: Responsive Dynamic Viewport Height Architecture for Dashboard Event Cards
+
+### The Problem
+On the `DashboardOverview` view, the two primary event tracking cards (`Untagged (Tag Not Removed)` and `Theft & Gate Alarms`) had fixed dimensions:
+```jsx
+<div className="bg-white border-2 ... h-[350px] max-h-[350px]">
+```
+While this rendered without breaking on compact laptop viewports (e.g. 768px height), modern high-resolution displays (1080p desktop monitors, 1440p QHD displays, and 4K screens) were severely impacted:
+1. **Excessive Unused Bottom Space**: Because the entire top area (Navbar, PageHeader, StatCards) takes ~295px, a static 350px card consumed only ~645px total height, leaving over 350px–700px of completely empty gray void between the bottom of the cards and the footer.
+2. **Artificial Item Truncation**: Despite abundant vertical screen real estate, operators had to scroll heavily within a cramped 200px scrollable area showing only 2–3 incident items at once.
+3. **Column Alignment Inflexibility**: The grid container used `items-start` rather than `items-stretch`, meaning any content deviation could lead to mismatched card heights.
+
+### Technical Solution
+1. **Calibrated Viewport Height Formula (`DashboardOverview.jsx`)**:
+   Replaced rigid pixel caps (`h-[350px] max-h-[350px]`) and initial tight offset (`295px`) with a calibrated viewport-relative calculation:
+   ```jsx
+   <div className="bg-white border-2 border-sky-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
+   ```
+   - **Mobile / Tablet (`<1024px`)**: Stacked cards adopt ergonomic heights (`h-[420px]` on mobile, `h-[460px]` on tablets) so neither card swallows the entire scrollable page.
+   - **Desktop (`>=1024px`)**: Dynamically computes `100vh - 345px` (offsetting the 65px navbar, 40px page header, 96px statcards, 40px padding/gaps, and 45px footer plus buffer). This ensures that the cards, footer, and entire page fit cleanly within the viewport without pushing the footer below the fold or triggering an outer browser window scrollbar.
+   - **Safety Boundaries**: `lg:min-h-[400px]` prevents excessive shrinking on low-profile viewports, while `lg:max-h-[850px]` prevents hyper-elongation on ultrawide monitors.
+2. **Stretch-Aligned CSS Grid**:
+   Upgraded the container grid from `items-start` to `items-stretch`:
+   ```jsx
+   <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1 items-stretch">
+   ```
+   This guarantees that both the `Untagged` and `Theft & Gate Alarms` cards maintain identical pixel heights across all display aspect ratios.
+3. **Inner Scroll Propagation**:
+   The inner stack container (`overflow-y-auto custom-scrollbar flex-1 min-h-0`) expands automatically into the gained vertical height, displaying 4–6 incident cards simultaneously on standard monitors.
+4. **Verification & Build Synchronization**:
+   - Re-ran Vitest suite (`npm test`): 100% green across all 21 test files (68/68 tests).
+   - Re-compiled production bundle (`npm run build`) into `dist/` for immediate IIS production serving.
+
+---
+
+## 27. Summary & Architectural Takeaways
 
 | Feature / Area | Initial Challenge | Final Solution | Architectural Benefit |
 | :--- | :--- | :--- | :--- |
@@ -899,6 +934,7 @@ Production requirements mandated:
 | **Alert Notifications** | Generic abstract labels without actionable product details | Article description as main title, Article No, Store Code & Name, Time | Instant, actionable incident context directly from top navbar |
 | **Microsoft IIS Hosting** | Deep route refreshes produce 404 errors on IIS | `public/web.config` with URL Rewrite rule and static MIME mappings | Flawless production SPA routing, zero 404s on refresh, auto-packaged in `dist` |
 | **Default Auth Guard** | Initialized `isAuthenticated: true` bypassed login for network users | Storage-backed initializer defaulting to false; protected routing | Zero unauthorized bypass; every new user/device begins at Login |
+| **Responsive Card Heights** | Fixed 350px left large blank space; 295px caused window scrollbar | Calibrated `lg:h-[calc(100vh-345px)] lg:min-h-[400px]` with `items-stretch` | Full screen utilization, footer completely visible above fold, zero outer scrollbar |
 
 
 

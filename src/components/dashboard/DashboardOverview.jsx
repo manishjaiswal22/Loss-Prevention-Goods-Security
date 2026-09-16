@@ -58,12 +58,10 @@ const DashboardOverview = () => {
       </div>
 
       {/* 2. Bottom Screen: Distinctly Themed Untagged vs Theft Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1 items-stretch">
         
-        {/* ===================================================================
-            SECTION 1: UNTAGGED - TAG NOT REMOVED AT CHECKOUT (BLUE THEME)
-            =================================================================== */}
-        <div className="bg-white border-2 border-sky-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[350px] max-h-[350px]">
+       
+        <div className="bg-white border-2 border-sky-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
           {/* Section Header with Distinct Blue Banner & Right-Aligned Count */}
           <div className="bg-gradient-to-r from-sky-50 via-sky-50/60 to-white px-4 py-3 border-b border-sky-100 flex items-center justify-between gap-3 h-[60px] shrink-0">
             <div className="flex items-center gap-3 min-w-0">
@@ -111,10 +109,8 @@ const DashboardOverview = () => {
           </div>
         </div>
 
-        {/* ===================================================================
-            SECTION 2: THEFT & GATE ALERTS (RED THEME)
-            =================================================================== */}
-        <div className="bg-white border-2 border-rose-200/90 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[350px] max-h-[350px]">
+       
+        <div className="bg-white border-2 border-rose-200/90 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
           {/* Section Header with Distinct Red Banner & Right-Aligned Count */}
           <div className="bg-gradient-to-r from-rose-50 via-rose-50/60 to-white px-4 py-3 border-b border-rose-100 flex items-center justify-between gap-3 h-[60px] shrink-0">
             <div className="flex items-center gap-3 min-w-0">
