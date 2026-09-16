@@ -8,16 +8,42 @@ import ReportsView from './components/reports/ReportsView';
 import NotFound from './components/common/NotFound';
 
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [user, setUser] = useState({ username: 'Manish' });
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return Boolean(sessionStorage.getItem('auth_user') || localStorage.getItem('auth_user'));
+    } catch {
+      return false;
+    }
+  });
+
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('auth_user') || localStorage.getItem('auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const handleLogin = (userData) => {
     setUser(userData);
     setIsAuthenticated(true);
+    try {
+      sessionStorage.setItem('auth_user', JSON.stringify(userData));
+    } catch (e) {
+      console.error('Failed to save session to storage', e);
+    }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setUser(null);
+    try {
+      sessionStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_user');
+    } catch (e) {
+      console.error('Failed to clear session storage', e);
+    }
   };
 
   return (

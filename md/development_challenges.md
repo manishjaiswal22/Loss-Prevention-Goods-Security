@@ -29,7 +29,8 @@ This document outlines the key technical challenges, design dilemmas, architectu
 21. [Challenge 20: Full-Coverage Test Suite & React 19 / Vitest Test Automation Architecture](#21-challenge-20-full-coverage-test-suite--react-19--vitest-test-automation-architecture)
 22. [Challenge 21: Unified Webpage & Window Viewport Scrollbar Architecture](#22-challenge-21-unified-webpage--window-viewport-scrollbar-architecture)
 23. [Challenge 22: Contextual Alert Notifications Architecture with Comprehensive Metadata Hierarchy](#23-challenge-22-contextual-alert-notifications-architecture-with-comprehensive-metadata-hierarchy)
-24. [Summary & Architectural Takeaways](#24-summary--architectural-takeaways)
+24. [Challenge 23: Production Hosting & Deployment Architecture on Microsoft IIS with URL Rewrite Engine](#24-challenge-23-production-hosting--deployment-architecture-on-microsoft-iis-with-url-rewrite-engine)
+25. [Summary & Architectural Takeaways](#25-summary--architectural-takeaways)
 
 ---
 
@@ -750,7 +751,126 @@ The notification popover in `TopNavbar.jsx` originally displayed generic mock ev
 
 ---
 
-## 24. Summary & Architectural Takeaways
+## 24. Challenge 23: Production Hosting & Deployment Architecture on Microsoft IIS with URL Rewrite Engine
+
+### The Problem
+When deploying a single-page application (SPA) built with Vite and React Router to **Microsoft IIS (Internet Information Services)**:
+1. **HTML5 History API 404 Routing Errors**: Navigating directly to routes such as `/dashboard`, `/analytics`, `/reports`, or refreshing deep URLs causes IIS to return `HTTP 404 - File Not Found`, because the web server searches for a physical directory or file rather than routing the request to `index.html`.
+2. **Missing MIME Types**: IIS requires explicit MIME mapping for modern web formats (`.woff`, `.woff2`, `.webp`, `.json`, `.svg`). If unregistered, assets return `HTTP 404` or `401`.
+3. **Build Artifact Sync**: Developers frequently face manual deployment friction if `web.config` is placed manually in `dist/` and wiped on every `npm run build`.
+4. **NTFS Directory Permissions**: IIS Application Pools require appropriate Read & Execute permissions on physical project paths to prevent `HTTP 500.19` or `401.3 Unauthorized` errors.
+
+### Technical Solution
+1. **Automated `web.config` Pipeline via Vite `public/` Directory**:
+   Created `public/web.config` so that every `npm run build` automatically packages it into the root of `dist/`:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <configuration>
+     <system.webServer>
+       <!-- React Router SPA URL Rewrite Rule -->
+       <rewrite>
+         <rules>
+           <rule name="React SPA Routes" stopProcessing="true">
+             <match url=".*" />
+             <conditions logicalGrouping="MatchAll">
+               <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+               <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+             </conditions>
+             <action type="Rewrite" url="/" />
+           </rule>
+         </rules>
+       </rewrite>
+
+       <!-- Static Content MIME Maps -->
+       <staticContent>
+         <remove fileExtension=".json" />
+         <mimeMap fileExtension=".json" mimeType="application/json" />
+         <remove fileExtension=".woff" />
+         <mimeMap fileExtension=".woff" mimeType="font/woff" />
+         <remove fileExtension=".woff2" />
+         <mimeMap fileExtension=".woff2" mimeType="font/woff2" />
+         <remove fileExtension=".webp" />
+         <mimeMap fileExtension=".webp" mimeType="image/webp" />
+         <remove fileExtension=".svg" />
+         <mimeMap fileExtension=".svg" mimeType="image/svg+xml" />
+       </staticContent>
+
+       <!-- HTTP Security Headers -->
+       <httpProtocol>
+         <customHeaders>
+           <add name="X-Content-Type-Options" value="nosniff" />
+           <add name="X-Frame-Options" value="SAMEORIGIN" />
+         </customHeaders>
+       </httpProtocol>
+     </system.webServer>
+   </configuration>
+   ```
+2. **Verified IIS & URL Rewrite Prerequisites**:
+   - Verified that the World Wide Web Publishing Service (`W3SVC`) is running.
+   - Verified that the IIS **URL Rewrite Module 2.1** (`rewrite.dll`) is installed in `%windir%\System32\inetsrv\rewrite.dll`.
+   - Verified NTFS permissions on the `dist` folder, granting `BUILTIN\Users` and `IIS_IUSRS` read and execute rights.
+3. **Deployment Options**:
+   - **Direct Physical Path**: Point an IIS Website (e.g. `LossPreventionApp` on Port 8080 or 80) directly to `E:\Loss-Prevention-Goods-Security\dist`. Build updates via `npm run build` are served immediately.
+   - **Inetpub Directory**: Copy the compiled contents of `dist/` to `C:\inetpub\wwwroot\loss-prevention`.
+
+---
+
+## 25. Challenge 24: Default Authentication Guard & Session Isolation for IIS Multi-User Deployments
+
+### The Problem
+In initial development, `App.jsx` initialized the authentication state to `true` with a hardcoded user object (`const [isAuthenticated, setIsAuthenticated] = useState(true)`). When the application was published to IIS for organizational network access, any workstation or user navigating to the application link (`http://localhost:8081/` or `http://<IP>:8081/`) bypassed credentials and landed immediately on the protected Dashboard as "Manish". 
+
+Production requirements mandated:
+1. **Unauthenticated by Default**: Any new browser, user, or device opening the link must land directly on the `/login` portal.
+2. **Protected Route Enforcing**: Direct navigation to `/dashboard`, `/analytics`, or `/reports` must intercept unauthenticated requests and redirect to `/login`.
+3. **Session Persistence on Refresh**: Once an authorized user signs in, their session must persist across browser page refreshes (`F5`) without re-prompting.
+4. **Clean Session Teardown**: Clicking "Sign out" in `TopNavbar` must invalidate the session in storage and return the browser immediately to `/login`.
+
+### Technical Solution
+1. **Storage-Backed Initializer Pattern (`src/App.jsx`)**:
+   Refactored `isAuthenticated` and `user` state initialization to read from browser storage (`sessionStorage` / `localStorage`):
+   ```javascript
+   const [isAuthenticated, setIsAuthenticated] = useState(() => {
+     try {
+       return Boolean(sessionStorage.getItem('auth_user') || localStorage.getItem('auth_user'));
+     } catch {
+       return false;
+     }
+   });
+
+   const [user, setUser] = useState(() => {
+     try {
+       const saved = sessionStorage.getItem('auth_user') || localStorage.getItem('auth_user');
+       return saved ? JSON.parse(saved) : null;
+     } catch {
+       return null;
+     }
+   });
+   ```
+2. **Synchronized Login & Logout Handlers**:
+   - `handleLogin`: Updates state and securely serializes user credentials to storage:
+     ```javascript
+     const handleLogin = (userData) => {
+       setUser(userData);
+       setIsAuthenticated(true);
+       try {
+         sessionStorage.setItem('auth_user', JSON.stringify(userData));
+       } catch (e) {
+         console.error('Failed to save session to storage', e);
+       }
+     };
+     ```
+   - `handleLogout`: Nullifies state and purges keys from both `sessionStorage` and `localStorage`, triggering an immediate route redirect to `/login`.
+3. **Dual State Automated Testing (`src/__tests__/App.test.jsx`)**:
+   Added test cases validating that:
+   - Unauthenticated access redirects by default to the login screen with `"Welcome Back !"` and `"Login Now"`.
+   - Authenticated sessions render the complete application shell and redirect `/` to `/dashboard`.
+4. **IIS Production Build Sync**:
+   Executed `npm run build` to update the compiled assets and `web.config` rewrite bundle in `dist/`.
+
+---
+
+## 26. Summary & Architectural Takeaways
 
 | Feature / Area | Initial Challenge | Final Solution | Architectural Benefit |
 | :--- | :--- | :--- | :--- |
@@ -774,9 +894,11 @@ The notification popover in `TopNavbar.jsx` originally displayed generic mock ev
 | **Streamlined Export** | Redundant CSV option cluttered export menu | Focused on Excel (.xlsx), isolated Print/PDF, and JSON | Streamlined operational workflows without format confusion |
 | **Visual Aesthetics** | Generic flat panels without identity | Dual-tone 2px borders, themed gradient headers, live ping dots | Distinct, cohesive security-themed design system |
 | **Data Integrity** | Unformatted amounts, trailing hyphens, copy clutter | Indian currency formatting, conditional strings, clean chips | High operational trust and zero UI glitches |
-| **Test Automation Suite** | Zero automated tests; risk of regressions in 20 components | Vitest + React Testing Library + JSDOM suite across all 20 components + App root | 100% green tests (21/21 files, 67/67 tests), 0 linter errors, production build verified |
+| **Test Automation Suite** | Zero automated tests; risk of regressions in 20 components | Vitest + React Testing Library + JSDOM suite across all 20 components + App root | 100% green tests (21/21 files, 68/68 tests), 0 linter errors, production build verified |
 | **Webpage Scrollbar** | Main window had default wide, blocky OS scrollbar | Global `::-webkit-scrollbar` & W3C `thin` applied to `html`, `body` | Seamless visual parity between webpage and interior cards |
 | **Alert Notifications** | Generic abstract labels without actionable product details | Article description as main title, Article No, Store Code & Name, Time | Instant, actionable incident context directly from top navbar |
+| **Microsoft IIS Hosting** | Deep route refreshes produce 404 errors on IIS | `public/web.config` with URL Rewrite rule and static MIME mappings | Flawless production SPA routing, zero 404s on refresh, auto-packaged in `dist` |
+| **Default Auth Guard** | Initialized `isAuthenticated: true` bypassed login for network users | Storage-backed initializer defaulting to false; protected routing | Zero unauthorized bypass; every new user/device begins at Login |
 
 
 

@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   TrendingDown,
   FileSpreadsheet,
-  FileText,
   Printer,
   X,
 } from 'lucide-react';
@@ -232,22 +231,6 @@ const ReportsView = () => {
     setExportMenuOpen(false);
   };
 
-
-  const exportToJSON = () => {
-    const dataStr =
-      'data:text/json;charset=utf-8,' +
-      encodeURIComponent(JSON.stringify(filteredData, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute(
-      'download',
-      `goods_security_report_${new Date().toISOString().slice(0, 10)}.json`
-    );
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    setExportMenuOpen(false);
-  };
 
   const handlePrint = () => {
     setExportMenuOpen(false);

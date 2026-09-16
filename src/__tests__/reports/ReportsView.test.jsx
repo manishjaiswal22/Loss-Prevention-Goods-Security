@@ -45,7 +45,7 @@ describe('ReportsView Component', () => {
     expect(theftTab).toHaveClass('bg-rose-500');
   });
 
-  it('renders export menu with Excel, Save to PDF/Print, and JSON (and verifies CSV is absent)', () => {
+  it('renders export menu with Excel and Save to PDF/Print (and verifies CSV is absent)', () => {
     render(
       <MemoryRouter>
         <ReportsView />
@@ -57,7 +57,6 @@ describe('ReportsView Component', () => {
 
     expect(screen.getByText('Microsoft Excel (.xlsx)')).toBeInTheDocument();
     expect(screen.getByText('Save to PDF / Print')).toBeInTheDocument();
-    expect(screen.getByText('JSON Data (.json)')).toBeInTheDocument();
 
     // Verify CSV is removed as requested
     expect(screen.queryByText(/CSV Document/i)).not.toBeInTheDocument();
