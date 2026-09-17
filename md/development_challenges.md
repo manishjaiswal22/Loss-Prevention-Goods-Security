@@ -1038,7 +1038,57 @@ When the user selected **"Today"**, **"Yesterday"**, or a single individual day 
 
 ---
 
-## 34. Summary & Architectural Takeaways
+## 34. Challenge 30: Large-Screen Responsive Card Sizing & Full-Width Chart Geometry Architecture
+
+### The Problem
+On wide and high-resolution displays (such as 1704x1152 and desktop monitors above 1440px):
+1. **Constrained Bar Chart Widths**: In `TheftByTimeOfDay.jsx` and `TheftByDayOfWeek.jsx`, the SVG charts used a narrow viewBox of `520x225` and an inline style constraint of `maxHeight: '220px'`. Due to fixed aspect-ratio scaling, this capped the rendered SVG width to ~508px inside a ~780px wide card container, leaving large empty white space on both sides.
+2. **Small 3D Pie Visual Footprint**: In `TagStatusDistributionChart.jsx`, the isometric cylinder container was capped at `w-48 h-34` (192px wide), appearing disproportionately small relative to the expanded desktop card width.
+3. **Card Height and Bottom Gutter Disparity**: The 2x2 analytics card grid used `items-start`, allowing cards with differing content heights to misalign, while the `TopStolenData` inner list was hardcoded to `h-[192px]`. On tall viewports (1152px), this created a 300px+ empty void above the footer.
+
+### Technical Solution
+1. **Wider Chart Geometry & Plot Range**:
+   - Expanded the SVG `viewBox` in `TheftByTimeOfDay` and `TheftByDayOfWeek` from `520x225` to `680x220`.
+   - Widened plot boundaries from `chartLeft: 44` to `chartRight: 660` (active plot width 616px vs 458px previously).
+   - Increased slot widths and bar widths (`barWidth: 52` for hourly, `barWidth: 46` for weekly).
+   - Replaced fixed `maxHeight: '220px'` with responsive scaling classes: `max-h-[240px] sm:max-h-[270px] xl:max-h-[310px] 2xl:max-h-[350px]`, enabling the charts to span the entire card width naturally.
+2. **Responsive 3D Isometric Cylinder Scaling**:
+   - Upgraded the 3D Pie container in `TagStatusDistributionChart.jsx` to `relative w-48 h-34 sm:w-56 sm:h-40 xl:w-68 xl:h-48 2xl:w-80 2xl:h-56 shrink-0`, allowing the 3D SVG cylinder to grow smoothly up to 320px wide on 2xl screens.
+   - Scaled legend cards, icons, and typography (`p-2 sm:p-2.5 xl:p-3 2xl:p-3.5`).
+3. **Card Height Balancing & Viewport Utilization**:
+   - In `AnalyticsView.jsx`, updated the 2x2 grid to `items-stretch gap-4 sm:gap-5 xl:gap-6` and passed `className="h-full"` to all 4 cards.
+   - Set calibrated responsive min-heights: `min-h-[310px] sm:min-h-[340px] xl:min-h-[385px] 2xl:min-h-[425px]` across all 4 analytical cards.
+   - In `TopStolenData.jsx`, scaled the scrollable list container to `h-[200px] sm:h-[225px] xl:h-[275px] 2xl:h-[315px]`, ensuring both cards in Row 1 maintain balanced heights.
+   - Scaled `StatCard.jsx` padding, height, and typography across `xl:` and `2xl:` viewports.
+4. **Verification**:
+   - `npm test`: **73/73 tests passing across all 21 test suites (100% green)**.
+   - `npx oxlint`: **0 warnings, 0 errors** across 49 files.
+   - `npm run build`: Production bundle compiled cleanly into `dist/`.
+
+---
+
+## 35. Challenge 31: Full Vertical Graph Height Coverage & Interior Space Optimization
+
+### The Problem
+While bar charts in `TheftByTimeOfDay.jsx` and `TheftByDayOfWeek.jsx` had been broadened horizontally, they floated in the vertical center of the card with large empty blank space above and below the graph. 
+- **Root Cause**: The chart SVG viewBox height was fixed at `220px` with active plot height of only `147px` (`chartTop: 28`, `chartBottom: 175`). Inside a ~330px high card body, the 220px SVG occupied less than 65% of the vertical space, and the actual bars occupied less than 45%, leaving ~80px of blank void above and below the bars.
+
+### Technical Solution
+1. **Vertical Geometry Re-Calibration**:
+   - Increased `viewBoxHeight` from `220` to **`290`**.
+   - Expanded active bar plot height `chartHeight` from `147px` to **`226px`** (`chartTop: 24`, `chartBottom: 250`), increasing vertical bar span by more than **53%**.
+   - Calculated tick Y coordinates across the new 226px span with 11px day/hour labels centered at `y: 270`.
+2. **Container Padding & Height Tightening**:
+   - Replaced heavy `p-3 sm:p-4 xl:p-5` (40px vertical padding) with streamlined `px-2 sm:px-4 xl:px-5 py-2 sm:py-2.5`.
+   - Replaced `w-full h-auto` with `w-full h-full select-none` inside `w-full h-full flex items-center justify-center`, enabling the chart SVG to fully expand and occupy the card's available interior height without leaving top or bottom voids.
+3. **Verification**:
+   - `npm test`: **73/73 tests passing across all 21 test suites (100% green)**.
+   - `npx oxlint`: **0 warnings, 0 errors**.
+   - `npm run build`: Production bundle compiled cleanly into `dist/`.
+
+---
+
+## 36. Summary & Architectural Takeaways
 
 | Feature / Area | Initial Challenge | Final Solution | Architectural Benefit |
 | :--- | :--- | :--- | :--- |
@@ -1072,6 +1122,8 @@ When the user selected **"Today"**, **"Yesterday"**, or a single individual day 
 | **Controlled Datepicker** | Datepicker closed prematurely on outside clicks or mid-range | Removed auto-outside click, added Close buttons (`X` & Footer), Apply required | Deliberate date selection, zero accidental dismissals, full user control |
 | **DD-MM-YYYY Standard** | Inconsistent date string abbreviations | `DD-MM-YYYY` standard across all components, highlighted pills, gray Close button | Clean visual hierarchy, prominent date ranges, seamless interaction |
 | **Single Date Output** | Redundant `X → X` or `X - X` for single day or Today | Emits and displays single `DD-MM-YYYY` value when startDate === endDate | Concise UI, clean data emission, zero visual redundancy |
+| **Large-Screen Analytics** | Narrow 520px charts and small 192px pie cards on 1704px screens | 680px full-width viewBox, 320px 3D pie, items-stretch, 425px min-heights | Full viewport balance, zero side gutters, bold charts, generous sizing |
+| **Vertical Graph Coverage** | Chart floating in vertical center with large blank space top/bottom | 290px viewBoxHeight, 226px bar height (+53%), streamlined padding | Graph covers entire card interior height without awkward voids |
 
 
 

@@ -82,23 +82,23 @@ export default function StatCard({
 
   const renderBigIcon = () => {
     if (!icon) {
-      return <DefaultCardIcon className="w-13 h-13 sm:w-16 sm:h-16" />;
+      return <DefaultCardIcon className="w-13 h-13 sm:w-16 sm:h-16 xl:w-18 xl:h-18 2xl:w-20 2xl:h-20" />;
     }
     if (React.isValidElement(icon)) {
       return React.cloneElement(icon, {
-        className: `${icon.props.className || ''} w-13 h-13 sm:w-16 sm:h-16`.trim(),
+        className: `${icon.props.className || ''} w-13 h-13 sm:w-16 sm:h-16 xl:w-18 xl:h-18 2xl:w-20 2xl:h-20`.trim(),
         strokeWidth: icon.props.strokeWidth || 1.6,
       });
     }
     const IconComponent = icon;
-    return <IconComponent className="w-13 h-13 sm:w-16 sm:h-16" strokeWidth={1.6} />;
+    return <IconComponent className="w-13 h-13 sm:w-16 sm:h-16 xl:w-18 xl:h-18 2xl:w-20 2xl:h-20" strokeWidth={1.6} />;
   };
 
   // 1. Shimmer Skeleton Loading State
   if (isCardLoading) {
     return (
       <div
-        className={`relative w-full rounded-2xl p-3.5 sm:p-4 overflow-hidden flex flex-col justify-center min-h-[82px] sm:min-h-[88px] ${currentTheme.cardBg} ${currentTheme.shadow} ${className}`}
+        className={`relative w-full rounded-2xl p-3.5 sm:p-4 xl:p-4.5 2xl:p-5 overflow-hidden flex flex-col justify-center min-h-[82px] sm:min-h-[88px] xl:min-h-[96px] 2xl:min-h-[106px] ${currentTheme.cardBg} ${currentTheme.shadow} ${className}`}
         role="status"
         aria-label="Loading metric"
       >
@@ -109,7 +109,7 @@ export default function StatCard({
         />
 
         {/* Skeleton Placeholders */}
-        <div className="relative z-10 pr-12 sm:pr-14">
+        <div className="relative z-10 pr-12 sm:pr-14 xl:pr-16">
           <div className={`h-3 w-28 rounded-md mb-2.5 ${currentTheme.skeletonTitle}`} />
           <div className={`h-6 w-20 rounded-md ${currentTheme.skeletonCount}`} />
         </div>
@@ -128,7 +128,7 @@ export default function StatCard({
   // 2. Active Card State with Ambient Shimmer / Hover Sheen
   return (
     <div
-      className={`group relative w-full rounded-2xl p-3.5 sm:p-4 overflow-hidden flex flex-col justify-center min-h-[82px] sm:min-h-[88px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${currentTheme.cardBg} ${currentTheme.shadow} ${className}`}
+      className={`group relative w-full rounded-2xl p-3.5 sm:p-4 xl:p-4.5 2xl:p-5 overflow-hidden flex flex-col justify-center min-h-[82px] sm:min-h-[88px] xl:min-h-[96px] 2xl:min-h-[106px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${currentTheme.cardBg} ${currentTheme.shadow} ${className}`}
     >
       {/* Continuous Ambient Shimmer or Hover Sheen Sweep */}
       {shimmer ? (
@@ -144,11 +144,11 @@ export default function StatCard({
       )}
 
       {/* Foreground Content: Title & Count on Left */}
-      <div className="relative z-10 pr-12 sm:pr-14">
-        <h4 className={`mb-2 text-xs font-semibold tracking-tight truncate ${currentTheme.titleColor}`}>
+      <div className="relative z-10 pr-12 sm:pr-14 xl:pr-16">
+        <h4 className={`mb-1.5 sm:mb-2 text-xs sm:text-[13px] xl:text-[13.5px] 2xl:text-sm font-semibold tracking-tight truncate ${currentTheme.titleColor}`}>
           {cardTitle}
         </h4>
-        <p className={`text-lg sm:text-xl font-bold tracking-tight mt-0.5 ${currentTheme.countColor}`}>
+        <p className={`text-lg sm:text-xl xl:text-2xl 2xl:text-[26px] font-bold tracking-tight mt-0.5 ${currentTheme.countColor}`}>
           {count}
         </p>
       </div>

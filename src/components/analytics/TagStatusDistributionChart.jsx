@@ -234,35 +234,35 @@ export default function TagStatusDistributionChart({
 
   return (
     <div
-      className={`bg-white border-2 border-emerald-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col transition-all hover:shadow-sm ${className}`}
+      className={`bg-white border-2 border-emerald-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col transition-all hover:shadow-sm min-h-[310px] sm:min-h-[340px] xl:min-h-[385px] 2xl:min-h-[425px] ${className}`}
     >
       {/* 1. Creative Header Banner (Matching DashboardOverview Theme) */}
-      <div className="bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white px-3.5 py-2.5 border-b border-emerald-100 flex items-center justify-between gap-3 shrink-0">
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white px-3.5 py-2.5 sm:px-4 sm:py-3 xl:px-5 xl:py-3.5 border-b border-emerald-100 flex items-center justify-between gap-3 shrink-0 h-[56px] sm:h-[60px] xl:h-[64px]">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shadow-emerald-500/25 shrink-0">
-            <PieIcon className="w-4 h-4" />
+          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 xl:w-9 xl:h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shadow-emerald-500/25 shrink-0">
+            <PieIcon className="w-4 h-4 xl:w-4.5 xl:h-4.5" />
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block leading-none mb-0.5">
+            <span className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-emerald-600 block leading-none mb-0.5">
               3D Inventory Breakdown
             </span>
-            <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 tracking-tight truncate leading-tight">
+            <h3 className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[15px] font-bold text-slate-900 tracking-tight truncate leading-tight">
               Tag Status Distribution (3D)
             </h3>
           </div>
         </div>
 
         {/* Total Tags Badge on Right Side */}
-        <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs">
+        <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs">
           {totalCount.toLocaleString('en-IN')} Total Tags
         </span>
       </div>
 
       {/* 2. Compact Body: 3D SVG Pie on Left, StatCard Legend on Right */}
-      <div className="p-3 sm:p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 flex-1 bg-slate-50/20">
+      <div className="p-3 sm:p-4 xl:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 xl:gap-6 flex-1 bg-slate-50/20">
         {/* 3D SVG Pie Container with Floating Metric Badge */}
         <div className="flex flex-col items-center justify-center shrink-0">
-          <div className="relative w-44 h-32 sm:w-48 sm:h-34 flex items-center justify-center">
+          <div className="relative w-48 h-34 sm:w-56 sm:h-40 xl:w-68 xl:h-48 2xl:w-80 2xl:h-56 flex items-center justify-center shrink-0">
             <svg
               className="w-full h-full overflow-visible"
               viewBox="0 0 220 135"
@@ -361,7 +361,7 @@ export default function TagStatusDistributionChart({
         </div>
 
         {/* Right Side: Exact StatCard Data Items (Clean Compact Rows matching Image 2) */}
-        <div className="flex flex-col gap-1.5 w-full flex-1 min-w-0">
+        <div className="flex flex-col gap-2 xl:gap-2.5 2xl:gap-3 w-full flex-1 min-w-0">
           {SLICES.map((slice) => {
             const isHovered = activeSegment === slice.id;
             const Icon = slice.icon;
@@ -371,25 +371,25 @@ export default function TagStatusDistributionChart({
                 key={slice.id}
                 onMouseEnter={() => setActiveSegment(slice.id)}
                 onMouseLeave={() => setActiveSegment(null)}
-                className={`flex items-center justify-between p-2 rounded-xl transition-all border cursor-pointer ${
+                className={`flex items-center justify-between p-2 sm:p-2.5 xl:p-3 2xl:p-3.5 rounded-xl transition-all border cursor-pointer ${
                   isHovered
                     ? 'bg-white shadow-xs border-slate-300 ring-1 ring-slate-200'
                     : 'bg-white/70 border-slate-200/70 hover:bg-white hover:border-slate-300'
                 }`}
               >
                 {/* Left: Icon + Clean Label matching Image 2 (NO parenthesis clutter) */}
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-2.5 xl:gap-3 min-w-0">
                   <div
-                    className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+                    className="w-6 h-6 sm:w-7 sm:h-7 xl:w-8 xl:h-8 2xl:w-9 2xl:h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
                     style={{ backgroundColor: `${slice.color}18`, color: slice.color }}
                   >
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 xl:w-4.5 xl:h-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-900 truncate block">
+                    <span className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[14.5px] font-bold text-slate-900 truncate block">
                       {slice.label}
                     </span>
-                    <span className="text-[10px] text-slate-500 block truncate mt-0.5">
+                    <span className="text-[10px] sm:text-[10.5px] xl:text-[11.5px] 2xl:text-xs text-slate-500 block truncate mt-0.5">
                       {slice.sublabel}
                     </span>
                   </div>
@@ -398,10 +398,10 @@ export default function TagStatusDistributionChart({
                 {/* Right: Count & Percentage Only (NO loss amount here) */}
                 <div className="flex items-center gap-1.5 text-xs shrink-0 text-right">
                   <div className="flex flex-col items-end leading-tight">
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-slate-900 text-xs sm:text-[13px] xl:text-sm 2xl:text-base">
                       {slice.count.toLocaleString('en-IN')}
                     </span>
-                    <span className="text-[9.5px] font-semibold text-slate-500">
+                    <span className="text-[9.5px] sm:text-[10px] xl:text-[11px] 2xl:text-xs font-semibold text-slate-500">
                       {slice.percentage}%
                     </span>
                   </div>
@@ -413,12 +413,12 @@ export default function TagStatusDistributionChart({
       </div>
 
       {/* 3. Bottom Context Sub-bar: Potential Loss shown ONLY here */}
-      <div className="px-3.5 py-1.5 bg-emerald-50/40 border-t border-emerald-100/70 flex items-center justify-between text-[10.5px] text-slate-600 h-7 shrink-0 cursor-pointer">
+      <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-emerald-50/40 border-t border-emerald-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer">
         <span className="truncate mr-2">
           Total Tags: <strong className="text-emerald-700 font-bold">{STATCARD_METRICS.totalTags.toLocaleString('en-IN')}</strong> (95.3% Safe)
         </span>
         <span className="font-semibold text-rose-600 shrink-0 flex items-center gap-1">
-          <TrendingDown className="w-3 h-3" />
+          <TrendingDown className="w-3 h-3 xl:w-3.5 xl:h-3.5" />
           Potential Loss: {STATCARD_METRICS.potentialLoss}
         </span>
       </div>

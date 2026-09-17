@@ -20,7 +20,7 @@ const AnalyticsView = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-5 xl:space-y-6">
       {/* 1. Header with Store & Date Range Filters */}
       <PageHeader title="Analytics">
         <StoreFilter onStoreChange={handleStoreChange} />
@@ -28,7 +28,7 @@ const AnalyticsView = () => {
       </PageHeader>
 
       {/* 2. Key Metrics Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-4.5 xl:gap-5">
         <StatCard
           title="Total Tags"
           count="12,568"
@@ -59,19 +59,19 @@ const AnalyticsView = () => {
         />
       </div>
 
-      {/* 3. Analytics Visualizations Grid (2x2 Balanced Cards, Compact & Creative) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      {/* 3. Analytics Visualizations Grid (2x2 Balanced Cards, Responsive & Generous on Large Screens) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 xl:gap-6 items-stretch">
         {/* Row 1, Left: Tag Status Distribution (3D Isometric Pie Chart) */}
-        <TagStatusDistributionChart />
+        <TagStatusDistributionChart className="h-full" />
 
         {/* Row 1, Right: Top Stolen Items (Target Articles & Theft Counts) */}
-        <TopStolenData />
+        <TopStolenData className="h-full" />
 
         {/* Row 2, Left: Theft by Time of Day (Hourly Incident Bar Chart) */}
-        <TheftByTimeOfDay />
+        <TheftByTimeOfDay className="h-full" />
 
         {/* Row 2, Right: Theft by Day of Week (Weekly Incident Bar Chart) */}
-        <TheftByDayOfWeek />
+        <TheftByDayOfWeek className="h-full" />
       </div>
     </div>
   );

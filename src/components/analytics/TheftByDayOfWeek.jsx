@@ -19,13 +19,13 @@ export default function TheftByDayOfWeek({
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // SVG Chart Geometry Constants
-  const viewBoxWidth = 520;
-  const viewBoxHeight = 225;
-  const chartLeft = 46;
-  const chartRight = 504;
-  const chartTop = 32;
-  const chartBottom = 175;
-  const chartHeight = chartBottom - chartTop; // 143px
+  const viewBoxWidth = 660;
+  const viewBoxHeight = 290;
+  const chartLeft = 44;
+  const chartRight = 640;
+  const chartTop = 24;
+  const chartBottom = 250;
+  const chartHeight = chartBottom - chartTop; // 226px
   const maxVal = 40; // 0 to 40 scale
 
   // Y-axis grid levels (0, 10, 20, 30, 40)
@@ -35,23 +35,23 @@ export default function TheftByDayOfWeek({
   // X-axis bar positions
   const plotWidth = chartRight - chartLeft;
   const slotWidth = plotWidth / data.length;
-  const barWidth = 40;
+  const barWidth = 46;
 
   return (
     <div
-      className={`bg-white border-2 border-sky-200/80 rounded-2xl overflow-hidden shadow-xs flex flex-col transition-all hover:shadow-sm ${className}`}
+      className={`bg-white border-2 border-sky-200/80 rounded-2xl overflow-hidden shadow-xs flex flex-col transition-all hover:shadow-sm min-h-[310px] sm:min-h-[340px] xl:min-h-[385px] 2xl:min-h-[425px] ${className}`}
     >
       {/* 1. Header Banner matching reference with View Details link */}
-      <div className="bg-gradient-to-r from-sky-50 via-sky-50/50 to-white px-3.5 py-2.5 border-b border-sky-100 flex items-center justify-between gap-3 shrink-0">
+      <div className="bg-gradient-to-r from-sky-50 via-sky-50/50 to-white px-3.5 py-2.5 sm:px-4 sm:py-3 xl:px-5 xl:py-3.5 border-b border-sky-100 flex items-center justify-between gap-3 shrink-0 h-[56px] sm:h-[60px] xl:h-[64px]">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-[#00a8e7] text-white flex items-center justify-center shadow-xs shadow-sky-500/25 shrink-0">
-            <Calendar className="w-4 h-4" />
+          <div className="w-8 h-8 sm:w-8.5 sm:h-8.5 xl:w-9 xl:h-9 rounded-xl bg-[#00a8e7] text-white flex items-center justify-center shadow-xs shadow-sky-500/25 shrink-0">
+            <Calendar className="w-4 h-4 xl:w-4.5 xl:h-4.5" />
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#00a8e7] block leading-none mb-0.5">
+            <span className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-[#00a8e7] block leading-none mb-0.5">
               Weekly Trends
             </span>
-            <h3 className="text-xs sm:text-[13px] font-bold text-slate-900 tracking-tight truncate leading-tight">
+            <h3 className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[15px] font-bold text-slate-900 tracking-tight truncate leading-tight">
               Theft by Day of Week
             </h3>
           </div>
@@ -61,20 +61,19 @@ export default function TheftByDayOfWeek({
         <button
           type="button"
           onClick={() => setShowDetailsModal(true)}
-          className="text-xs font-bold text-[#00a8e7] hover:text-sky-600 transition-colors flex items-center gap-1 shrink-0 py-1 px-2 rounded-lg hover:bg-sky-50 cursor-pointer"
+          className="text-xs sm:text-[12.5px] font-bold text-[#00a8e7] hover:text-sky-600 transition-colors flex items-center gap-1 shrink-0 py-1 px-2 rounded-lg hover:bg-sky-50 cursor-pointer"
         >
           <span>View Details</span>
           <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
         </button>
       </div>
 
-      {/* 2. Main Bar Chart Area */}
-      <div className="p-3 sm:p-4 bg-slate-50/15 flex-1 relative flex flex-col justify-center">
-        <div className="w-full relative">
+      {/* 2. Main Bar Chart Area - Fills vertical height of card */}
+      <div className="px-2 sm:px-4 xl:px-5 py-2 sm:py-2.5 flex-1 relative flex flex-col justify-center min-h-[220px]">
+        <div className="w-full h-full flex items-center justify-center">
           <svg
             viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
-            className="w-full h-auto select-none"
-            style={{ maxHeight: '220px' }}
+            className="w-full h-full select-none"
           >
             <defs>
               {/* Subtle top-to-bottom blue gradient */}
@@ -214,14 +213,14 @@ export default function TheftByDayOfWeek({
       </div>
 
       {/* 3. Bottom Context Sub-bar: Peak Day & Weekend Ratio */}
-      <div className="px-3.5 py-1.5 bg-sky-50/40 border-t border-sky-100/70 flex items-center justify-between text-[10.5px] text-slate-600 h-7 shrink-0 cursor-pointer">
+      <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-sky-50/40 border-t border-sky-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer">
         <span className="truncate mr-2">
           Peak Day:{' '}
           <strong className="text-[#00a8e7] font-bold">{summary.peakDay}</strong> ({summary.peakCount} Thefts ·{' '}
           {summary.peakPercentage}%)
         </span>
         <span className="font-semibold text-slate-500 shrink-0 flex items-center gap-1">
-          <TrendingUp className="w-3 h-3 text-[#00a8e7]" />
+          <TrendingUp className="w-3 h-3 xl:w-3.5 xl:h-3.5 text-[#00a8e7]" />
           Midweek Surge: Wed-Fri ({summary.midweekRushPercentage}%)
         </span>
       </div>
