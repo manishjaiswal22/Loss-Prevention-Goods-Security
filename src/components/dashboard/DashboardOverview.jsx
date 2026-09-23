@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PageHeader from '../common/PageHeader';
 import CurrentDateOption from '../common/CurrentDateOption';
 import StoreFilter from '../common/StoreFilter';
@@ -6,15 +6,54 @@ import StatCard from '../common/StatCard';
 import EpcCard from '../common/EpcCard';
 import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
 import { MOCK_UNTAGGED_ITEMS, MOCK_THEFT_ALERTS } from '../../data/mockEpcData';
+import { fetchDashboardRecord } from '../../utils/dashboardApi';
 
 const DashboardOverview = () => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState({
+    totalTags: '...',
+    untagged: '...',
+    theftAlerts: '...',
+    potentialLoss: 'N/A'
+  });
+
+  const loadMetrics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchDashboardRecord();
+      setMetrics(data);
+    } catch (error) {
+      console.error('Failed to load dashboard metrics:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await fetchDashboardRecord();
+        if (!ignore) {
+          setMetrics(data);
+        }
+      } catch (error) {
+        console.error('Failed to load dashboard metrics:', error);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleStoreChange = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 600);
+    loadMetrics();
   };
 
   return (
@@ -29,28 +68,28 @@ const DashboardOverview = () => {
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Tags"
-          count="100"
+          count={metrics.totalTags}
           icon={Tag}
           variant="green"
           loading={loading}
         />
         <StatCard
           title="Untagged"
-          count="30"
+          count={metrics.untagged}
           icon={TagX}
           variant="blue"
           loading={loading}
         />
         <StatCard
           title="Theft Alerts"
-          count="12"
+          count={metrics.theftAlerts}
           icon={AlertTriangle}
           variant="gray"
           loading={loading}
         />
         <StatCard
           title="Potential Loss"
-          count="₹4,250"
+          count={metrics.potentialLoss}
           icon={TrendingDown}
           variant="rose"
           loading={loading}
@@ -103,7 +142,6 @@ const DashboardOverview = () => {
                 time={item.time}
                 status={item.status}
                 variant="untagged"
-                loading={loading}
               />
             ))}
           </div>
@@ -156,7 +194,6 @@ const DashboardOverview = () => {
                 time={item.time}
                 status={item.status}
                 variant="theft"
-                loading={loading}
               />
             ))}
           </div>
