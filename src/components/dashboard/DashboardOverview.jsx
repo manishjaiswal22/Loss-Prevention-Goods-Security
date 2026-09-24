@@ -6,7 +6,7 @@ import StatCard from '../common/StatCard';
 import EpcCard from '../common/EpcCard';
 import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
 import { MOCK_UNTAGGED_ITEMS, MOCK_THEFT_ALERTS } from '../../data/mockEpcData';
-import { fetchDashboardRecord } from '../../utils/dashboardApi';
+import { fetchTodayRecord } from '../../utils/dashboardApi';
 
 const DashboardOverview = () => {
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ const DashboardOverview = () => {
   const loadMetrics = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchDashboardRecord();
+      const data = await fetchTodayRecord();
       setMetrics(data);
     } catch (error) {
       console.error('Failed to load dashboard metrics:', error);
@@ -34,7 +34,7 @@ const DashboardOverview = () => {
     (async () => {
       setLoading(true);
       try {
-        const data = await fetchDashboardRecord();
+        const data = await fetchTodayRecord();
         if (!ignore) {
           setMetrics(data);
         }
