@@ -5,10 +5,33 @@ import { TAG_STATUS_DATA, STATCARD_METRICS } from '../../data/mockAnalyticsData'
 
 export default function TagStatusDistributionChart({
   data = TAG_STATUS_DATA,
+  metrics,
   className = '',
 }) {
   const [activeSegment, setActiveSegment] = useState(null);
-  const totalCount = data?.total || STATCARD_METRICS.totalTags;
+
+  // Parse numerical values from metrics or fallback to defaults
+  const parsedTotal = metrics?.totalTags != null && metrics.totalTags !== '...'
+    ? Number(String(metrics.totalTags).replace(/,/g, ''))
+    : null;
+  const parsedUntagged = metrics?.untagged != null && metrics.untagged !== '...'
+    ? Number(String(metrics.untagged).replace(/,/g, ''))
+    : null;
+  const parsedLoss = metrics?.theftAlerts != null && metrics.theftAlerts !== '...'
+    ? Number(String(metrics.theftAlerts).replace(/,/g, ''))
+    : null;
+
+  const totalNum = parsedTotal != null ? parsedTotal : (data?.total || STATCARD_METRICS.totalTags);
+  const untaggedNum = parsedUntagged != null ? parsedUntagged : STATCARD_METRICS.untagged;
+  const theftNum = parsedLoss != null ? parsedLoss : STATCARD_METRICS.theftAlerts;
+
+  const untaggedPct = totalNum > 0 ? Number(((untaggedNum / totalNum) * 100).toFixed(1)) : 2.5;
+  const theftPct = totalNum > 0 ? Number(((theftNum / totalNum) * 100).toFixed(1)) : 2.2;
+  const safePct = Number(Math.max(0, 100 - untaggedPct - theftPct).toFixed(1));
+
+  const potentialLossDisplay = metrics?.potentialLoss && metrics.potentialLoss !== '...'
+    ? metrics.potentialLoss
+    : STATCARD_METRICS.potentialLoss;
 
   // 3D Isometric Geometry Parameters
   const cx = 110;
@@ -23,14 +46,14 @@ export default function TagStatusDistributionChart({
     y: cy + ry * Math.sin(toRad(deg)),
   });
 
-  // Slice configurations for the 3 StatCard data items from Image 2
+  // Slice configurations for the 3 StatCard data items
   const SLICES = [
     {
       id: 'total-tags',
       label: 'Total Tags',
       sublabel: 'Active & verified in store',
-      count: STATCARD_METRICS.totalTags,
-      percentage: 95.3,
+      count: totalNum,
+      percentage: safePct,
       startDeg: 135,
       endDeg: 405, // 45 deg
       pullDx: 0,
@@ -45,8 +68,8 @@ export default function TagStatusDistributionChart({
       id: 'untagged',
       label: 'Untagged',
       sublabel: 'Tag not removed at POS',
-      count: STATCARD_METRICS.untagged,
-      percentage: 2.5,
+      count: untaggedNum,
+      percentage: untaggedPct,
       startDeg: 45,
       endDeg: 90,
       pullDx: 8,
@@ -61,8 +84,8 @@ export default function TagStatusDistributionChart({
       id: 'theft-alerts',
       label: 'Theft Alerts',
       sublabel: 'Gate scanner alarms',
-      count: STATCARD_METRICS.theftAlerts,
-      percentage: 2.2,
+      count: theftNum,
+      percentage: theftPct,
       startDeg: 90,
       endDeg: 135,
       pullDx: -8,
@@ -254,7 +277,7 @@ export default function TagStatusDistributionChart({
 
         {/* Total Tags Badge on Right Side */}
         <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[10.5px] sm:text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs">
-          {totalCount.toLocaleString('en-IN')} Total Tags
+          {totalNum.toLocaleString('en-IN')} Total Tags
         </span>
       </div>
 
@@ -415,11 +438,11 @@ export default function TagStatusDistributionChart({
       {/* 3. Bottom Context Sub-bar: Potential Loss shown ONLY here */}
       <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-emerald-50/40 border-t border-emerald-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer">
         <span className="truncate mr-2">
-          Total Tags: <strong className="text-emerald-700 font-bold">{STATCARD_METRICS.totalTags.toLocaleString('en-IN')}</strong> (95.3% Safe)
+          Total Tags: <strong className="text-emerald-700 font-bold">{totalNum.toLocaleString('en-IN')}</strong> ({safePct}% Safe)
         </span>
         <span className="font-semibold text-rose-600 shrink-0 flex items-center gap-1">
           <TrendingDown className="w-3 h-3 xl:w-3.5 xl:h-3.5" />
-          Potential Loss: {STATCARD_METRICS.potentialLoss}
+          Potential Loss: {potentialLossDisplay}
         </span>
       </div>
     </div>

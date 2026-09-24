@@ -101,7 +101,7 @@ const AnalyticsView = () => {
       {/* 3. Analytics Visualizations Grid (2x2 Balanced Cards, Responsive & Generous on Large Screens) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 xl:gap-6 items-stretch">
         {/* Row 1, Left: Tag Status Distribution (3D Isometric Pie Chart) */}
-        <TagStatusDistributionChart className="h-full" />
+        <TagStatusDistributionChart className="h-full" metrics={metrics} />
 
         {/* Row 1, Right: Top Stolen Items (Target Articles & Theft Counts) */}
         <TopStolenData className="h-full" />
