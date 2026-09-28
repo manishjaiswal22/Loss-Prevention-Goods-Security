@@ -13,10 +13,10 @@ import { fetchDashboardRecord } from '../../utils/dashboardApi';
 const AnalyticsView = () => {
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState({
-    totalTags: '12,568',
-    untagged: '428',
-    theftAlerts: '89',
-    potentialLoss: '₹4,23,010'
+    totalTags: '0',
+    untagged: '0',
+    theftAlerts: '0',
+    potentialLoss: '₹ 0'
   });
 
   const loadMetrics = useCallback(async () => {
