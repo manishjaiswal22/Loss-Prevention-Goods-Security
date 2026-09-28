@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
+import { loginUser } from '../../utils/authApi';
 
 const Login = ({ onLogin }) => {
     const [username, setUsername] = useState('');
@@ -9,7 +10,7 @@ const Login = ({ onLogin }) => {
     const [notification, setNotification] = useState(null);
     const [errors, setErrors] = useState({ username: false, password: false });
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
         const isUsernameEmpty = !username.trim();
@@ -33,13 +34,23 @@ const Login = ({ onLogin }) => {
 
         setErrors({ username: false, password: false });
         setIsLoading(true);
-        setTimeout(() => {
-            setIsLoading(false);
-            showToast(`Welcome back! Successfully signed in as ${username}`, 'success');
-            if (onLogin) {
-                setTimeout(() => onLogin({ username }), 500);
+
+        try {
+            const data = await loginUser(username, password);
+            showToast(data.message || `Welcome back! Successfully signed in as ${username}`, 'success');
+
+            if (data.token) {
+                sessionStorage.setItem('auth_token', data.token);
             }
-        }, 1000);
+
+            if (onLogin) {
+                setTimeout(() => onLogin({ username: data.user?.username || username }), 500);
+            }
+        } catch (err) {
+            showToast(err.message || 'Invalid username or password. Please try again.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const showToast = (message, type = 'success') => {

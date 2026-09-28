@@ -41,7 +41,7 @@ describe('Login Component', () => {
     expect(passwordInput).toHaveAttribute('type', 'text');
   });
 
-  it('calls onLogin callback upon successful login submission', () => {
+  it('calls onLogin callback upon successful login submission', async () => {
     const handleLogin = vi.fn();
     render(<Login onLogin={handleLogin} />);
 
@@ -51,9 +51,12 @@ describe('Login Component', () => {
 
     fireEvent.change(usernameInput, { target: { value: 'admin_user' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.click(submitBtn);
 
-    // Fast-forward fake timers (1000ms + 500ms delay in Login.jsx)
+    await act(async () => {
+      fireEvent.click(submitBtn);
+    });
+
+    // Fast-forward fake timers (500ms delay in Login.jsx)
     act(() => {
       vi.advanceTimersByTime(1600);
     });
