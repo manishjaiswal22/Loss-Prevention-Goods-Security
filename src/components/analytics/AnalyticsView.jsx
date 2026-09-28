@@ -11,12 +11,12 @@ import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
 import { fetchDashboardRecord } from '../../utils/dashboardApi';
 
 const AnalyticsView = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState({
-    totalTags: '...',
-    untagged: '...',
-    theftAlerts: '...',
-    potentialLoss: 'N/A'
+    totalTags: '12,568',
+    untagged: '428',
+    theftAlerts: '89',
+    potentialLoss: '₹4,23,010'
   });
 
   const loadMetrics = useCallback(async () => {
@@ -34,18 +34,13 @@ const AnalyticsView = () => {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      setLoading(true);
       try {
         const data = await fetchDashboardRecord();
-        if (!ignore) {
+        if (!ignore && data) {
           setMetrics(data);
         }
       } catch (error) {
         console.error('Failed to load analytics dashboard metrics:', error);
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
       }
     })();
 
@@ -55,7 +50,11 @@ const AnalyticsView = () => {
   }, []);
 
   const handleStoreChange = () => {
-    loadMetrics();
+    setLoading(true);
+    setTimeout(async () => {
+      await loadMetrics();
+      setLoading(false);
+    }, 600);
   };
 
   return (

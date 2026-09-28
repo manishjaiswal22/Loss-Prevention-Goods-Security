@@ -19,7 +19,8 @@ const DefaultCardIcon = ({ className = 'w-10 h-10' }) => (
 export default function StatCard({
   title,
   text,
-  count = '0',
+  count,
+  value,
   icon,
   variant = 'green',
   className = '',
@@ -28,6 +29,7 @@ export default function StatCard({
   shimmer = false,
 }) {
   const cardTitle = title || text || 'NA';
+  const cardCount = value !== undefined && value !== null ? value : (count !== undefined && count !== null ? count : '0');
   const isCardLoading = loading || isLoading;
 
   const variantStyles = {
@@ -149,7 +151,7 @@ export default function StatCard({
           {cardTitle}
         </h4>
         <p className={`text-lg sm:text-xl xl:text-2xl 2xl:text-[26px] font-bold tracking-tight mt-0.5 ${currentTheme.countColor}`}>
-          {count}
+          {cardCount}
         </p>
       </div>
 

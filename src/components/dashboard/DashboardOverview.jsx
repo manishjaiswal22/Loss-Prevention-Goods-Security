@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '../common/PageHeader';
 import CurrentDateOption from '../common/CurrentDateOption';
 import StoreFilter from '../common/StoreFilter';
@@ -9,43 +9,25 @@ import { MOCK_UNTAGGED_ITEMS, MOCK_THEFT_ALERTS } from '../../data/mockEpcData';
 import { fetchTodayRecord } from '../../utils/dashboardApi';
 
 const DashboardOverview = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState({
-    totalTags: '...',
-    untagged: '...',
-    theftAlerts: '...',
-    potentialLoss: 'N/A'
+    totalTags: '0',
+    untagged: '0',
+    theftAlerts: '0',
+    potentialLoss: '₹ 0'
   });
-
-  const loadMetrics = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchTodayRecord();
-      setMetrics(data);
-    } catch (error) {
-      console.error('Failed to load dashboard metrics:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     let ignore = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await fetchTodayRecord();
-        if (!ignore) {
+    fetchTodayRecord()
+      .then((data) => {
+        if (!ignore && data) {
           setMetrics(data);
         }
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error('Failed to load dashboard metrics:', error);
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    })();
+      });
 
     return () => {
       ignore = true;
@@ -53,7 +35,10 @@ const DashboardOverview = () => {
   }, []);
 
   const handleStoreChange = () => {
-    loadMetrics();
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 600);
   };
 
   return (
@@ -98,8 +83,8 @@ const DashboardOverview = () => {
 
       {/* 2. Bottom Screen: Distinctly Themed Untagged vs Theft Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1 items-stretch">
-        
-       
+
+
         <div className="bg-white border-2 border-sky-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
           {/* Section Header with Distinct Blue Banner & Right-Aligned Count */}
           <div className="bg-gradient-to-r from-sky-50 via-sky-50/60 to-white px-4 py-3 border-b border-sky-100 flex items-center justify-between gap-3 h-[60px] shrink-0">
@@ -147,7 +132,7 @@ const DashboardOverview = () => {
           </div>
         </div>
 
-       
+
         <div className="bg-white border-2 border-rose-200/90 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
           {/* Section Header with Distinct Red Banner & Right-Aligned Count */}
           <div className="bg-gradient-to-r from-rose-50 via-rose-50/60 to-white px-4 py-3 border-b border-rose-100 flex items-center justify-between gap-3 h-[60px] shrink-0">

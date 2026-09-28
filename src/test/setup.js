@@ -46,4 +46,22 @@ if (typeof window !== 'undefined') {
   if (window.HTMLElement) {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   }
+
+  // Mock global fetch for relative /api/ endpoints in Node/jsdom
+  const originalFetch = global.fetch;
+  global.fetch = vi.fn(async (url, options) => {
+    if (typeof url === 'string' && url.startsWith('/api/')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          TotalTags: 100,
+          Checkout: 30,
+          Loss: 12,
+          PotentialLoss: 4250,
+        }),
+      };
+    }
+    return typeof originalFetch === 'function' ? originalFetch(url, options) : Promise.resolve({ ok: true, json: async () => ({}) });
+  });
 }
