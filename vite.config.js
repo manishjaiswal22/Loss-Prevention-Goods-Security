@@ -2,10 +2,15 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backendTarget = env.VITE_BACKEND_URL || env.BACKEND_URL || 'http://172.20.204.125:5050'
+  const backendTarget = env.VITE_BACKEND_URL
+
+  if (!backendTarget) {
+    throw new Error('BACKEND_URL is not defined. Please set it in your .env file')
+  }
 
   return {
     plugins: [react(), tailwindcss()],
