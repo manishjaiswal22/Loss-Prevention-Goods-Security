@@ -77,6 +77,10 @@ const ReportsView = () => {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printProgress, setPrintProgress] = useState(0);
+  const [progressStatusText, setProgressStatusText] = useState('');
+  const [printRecords, setPrintRecords] = useState(null);
 
   // Close rows dropdown on outside click
   useEffect(() => {
@@ -374,79 +378,205 @@ const ReportsView = () => {
     []
   );
 
-  // 3. Export Handlers
+  // 3. Export Handlers with Background Page-by-Page Fetching
+  const fetchAllRecordsForExport = async (onProgress) => {
+    // If all records are already present in memory
+    if (
+      reportData.records &&
+      reportData.records.length > 0 &&
+      reportData.totalRecords &&
+      reportData.records.length >= reportData.totalRecords
+    ) {
+      if (onProgress) onProgress(100, filteredData.length, filteredData.length, 'Records ready');
+      return filteredData;
+    }
+
+    const BATCH_SIZE = 500;
+    let totalPages = 1;
+    let totalRecords = 0;
+    const accumulated = [];
+
+    if (onProgress) onProgress(10, 0, 0, 'Fetching first batch...');
+
+    // Fetch Page 1 to get totalPages & totalRecords
+    const firstRes = await fetchIncidentReport({
+      StoreCode: selectedStore !== 'all' ? selectedStore : undefined,
+      FromDate: dateRange.fromDate || undefined,
+      ToDate: dateRange.toDate || undefined,
+      PageNumber: 1,
+      PageSize: BATCH_SIZE,
+      EventType: selectedEventType !== 'All' ? selectedEventType : undefined,
+      Search: searchQuery.trim() || undefined,
+    });
+
+    if (!firstRes || !firstRes.records) {
+      return filteredData;
+    }
+
+    accumulated.push(...firstRes.records);
+    totalRecords = firstRes.totalRecords || firstRes.records.length;
+    totalPages = firstRes.totalPages || Math.ceil(totalRecords / BATCH_SIZE) || 1;
+
+    if (onProgress) {
+      const pct = Math.min(100, Math.round((accumulated.length / Math.max(1, totalRecords)) * 100));
+      onProgress(
+        pct,
+        accumulated.length,
+        totalRecords,
+        `Fetched page 1 of ${totalPages} (${accumulated.length}/${totalRecords} records)`
+      );
+    }
+
+    // Fetch subsequent pages in the background
+    for (let p = 2; p <= totalPages; p++) {
+      const nextRes = await fetchIncidentReport({
+        StoreCode: selectedStore !== 'all' ? selectedStore : undefined,
+        FromDate: dateRange.fromDate || undefined,
+        ToDate: dateRange.toDate || undefined,
+        PageNumber: p,
+        PageSize: BATCH_SIZE,
+        EventType: selectedEventType !== 'All' ? selectedEventType : undefined,
+        Search: searchQuery.trim() || undefined,
+      });
+
+      if (nextRes && nextRes.records && nextRes.records.length > 0) {
+        accumulated.push(...nextRes.records);
+      } else {
+        break;
+      }
+
+      if (onProgress) {
+        const pct = Math.min(99, Math.round((accumulated.length / Math.max(1, totalRecords)) * 100));
+        onProgress(
+          pct,
+          accumulated.length,
+          totalRecords,
+          `Fetched page ${p} of ${totalPages} (${accumulated.length}/${totalRecords} records)`
+        );
+      }
+    }
+
+    if (onProgress) {
+      onProgress(100, accumulated.length, totalRecords, 'Compiling records...');
+    }
+
+    // Client-side safety filter matching active tab and search query
+    let finalRecords = accumulated;
+    if (selectedEventType === 'Theft') {
+      finalRecords = finalRecords.filter((r) => r.eventType === 'Theft');
+    } else if (selectedEventType === 'Untagged') {
+      finalRecords = finalRecords.filter((r) => r.eventType === 'Untagged');
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      finalRecords = finalRecords.filter(
+        (item) =>
+          item.epc?.toLowerCase().includes(q) ||
+          item.articleNo?.toLowerCase().includes(q) ||
+          item.articleDescription?.toLowerCase().includes(q) ||
+          item.storeCode?.toLowerCase().includes(q) ||
+          item.storeName?.toLowerCase().includes(q) ||
+          item.eventType?.toLowerCase().includes(q) ||
+          String(item.amount ?? '').includes(q) ||
+          String(item.srNo ?? '').includes(q)
+      );
+    }
+
+    return finalRecords;
+  };
+
   const exportToExcel = async () => {
     setExportMenuOpen(false);
     setIsExporting(true);
     setExportProgress(0);
+    setProgressStatusText('Starting export...');
 
-    const allRecords = filteredData;
+    try {
+      const allRecords = await fetchAllRecordsForExport((pct, current, total, text) => {
+        setExportProgress(pct);
+        setProgressStatusText(text || `Fetching records... (${current}/${total})`);
+      });
 
-    // Smooth export progress animation on the button
-    for (let p = 25; p <= 90; p += 25) {
-      setExportProgress(p);
-      await new Promise((resolve) => setTimeout(resolve, 35));
+      const exportData = (allRecords || []).map((item, idx) => ({
+        'Sr No': idx + 1,
+        'Date': item.date,
+        'Time': item.time || '',
+        'Store Code': item.storeCode,
+        'Store Name': item.storeName,
+        'EPC Code': item.epc,
+        'Article No': item.articleNo,
+        'Article Description': item.articleDescription,
+        'Qty': item.qty,
+        'Amount (INR)': item.amount,
+        'Event Type': item.eventType,
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      worksheet['!cols'] = [
+        { wch: 8 },
+        { wch: 14 },
+        { wch: 8 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 28 },
+        { wch: 14 },
+        { wch: 32 },
+        { wch: 8 },
+        { wch: 14 },
+        { wch: 12 },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Security Incidents');
+      let dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
+      if (dateRange.fromDate && dateRange.toDate) {
+        const fromFormatted = dateRange.fromDate.replace(/-/g, '_');
+        const toFormatted = dateRange.toDate.replace(/-/g, '_');
+        dateStr = fromFormatted === toFormatted
+          ? fromFormatted
+          : `${fromFormatted}_to_${toFormatted}`;
+      } else if (dateRange.fromDate) {
+        dateStr = dateRange.fromDate.replace(/-/g, '_');
+      }
+      const typeCapitalized = selectedEventType
+        ? selectedEventType.charAt(0).toUpperCase() + selectedEventType.slice(1).toLowerCase()
+        : 'All';
+      XLSX.writeFile(workbook, `${typeCapitalized}_Report_${dateStr}.xlsx`);
+    } catch (err) {
+      console.error('Failed to export to Excel:', err);
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+      setProgressStatusText('');
     }
-
-    setExportProgress(100);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    const exportData = allRecords.map((item, idx) => ({
-      'Sr No': idx + 1,
-      'Date': item.date,
-      'Time': item.time,
-      'Store Code': item.storeCode,
-      'Store Name': item.storeName,
-      'EPC Code': item.epc,
-      'Article No': item.articleNo,
-      'Article Description': item.articleDescription,
-      'Qty': item.qty,
-      'Amount (INR)': item.amount,
-      'Event Type': item.eventType,
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    worksheet['!cols'] = [
-      { wch: 8 },
-      { wch: 14 },
-      { wch: 8 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 28 },
-      { wch: 14 },
-      { wch: 32 },
-      { wch: 8 },
-      { wch: 14 },
-      { wch: 12 },
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Security Incidents');
-    let dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
-    if (dateRange.fromDate && dateRange.toDate) {
-      const fromFormatted = dateRange.fromDate.replace(/-/g, '_');
-      const toFormatted = dateRange.toDate.replace(/-/g, '_');
-      dateStr = fromFormatted === toFormatted
-        ? fromFormatted
-        : `${fromFormatted}_to_${toFormatted}`;
-    } else if (dateRange.fromDate) {
-      dateStr = dateRange.fromDate.replace(/-/g, '_');
-    }
-    const typeCapitalized = selectedEventType
-      ? selectedEventType.charAt(0).toUpperCase() + selectedEventType.slice(1).toLowerCase()
-      : 'All';
-    XLSX.writeFile(workbook, `${typeCapitalized}_Report_${dateStr}.xlsx`);
-    setIsExporting(false);
-    setExportProgress(0);
   };
 
-
-  const handlePrint = () => {
+  const handlePrint = async () => {
     setExportMenuOpen(false);
-    // Slight delay to ensure dropdown is fully closed before opening browser print preview
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setIsPrinting(true);
+    setPrintProgress(0);
+    setProgressStatusText('Preparing printable report...');
+
+    try {
+      const allRecords = await fetchAllRecordsForExport((pct, current, total, text) => {
+        setPrintProgress(pct);
+        setProgressStatusText(text || `Fetching records for print... (${current}/${total})`);
+      });
+
+      setPrintRecords(allRecords);
+      // Allow DOM to update printable area before launching browser print dialog
+      setTimeout(() => {
+        window.print();
+        setIsPrinting(false);
+        setPrintProgress(0);
+        setProgressStatusText('');
+      }, 300);
+    } catch (err) {
+      console.error('Failed to prepare print report:', err);
+      setIsPrinting(false);
+      setPrintProgress(0);
+      setProgressStatusText('');
+    }
   };
 
   return (
@@ -741,7 +871,7 @@ const ReportsView = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-[9.5px] font-semibold text-slate-800">
-              {filteredData.map((item, idx) => (
+              {(printRecords || filteredData).map((item, idx) => (
                 <tr key={item.id || idx} className="border-b border-slate-200">
                   <td className="py-1.5 px-2 text-center text-slate-800">{idx + 1}</td>
                   <td className="py-1.5 px-2 text-slate-800">{item.date}</td>
@@ -767,6 +897,43 @@ const ReportsView = () => {
           </table>
         </div>
       </div>
+
+      {/* Background Export/Print Real-Time Progress Toast */}
+      {(isExporting || isPrinting) && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-3.5 animate-in slide-in-from-bottom-3 duration-200 min-w-[280px]">
+          <div className="relative w-8 h-8 flex items-center justify-center shrink-0">
+            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
+              <path
+                className="text-slate-700"
+                strokeWidth="3.5"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className="text-[#00a8e7] transition-all duration-200"
+                strokeDasharray={`${isExporting ? exportProgress : printProgress}, 100`}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+            <span className="absolute text-[10px] font-bold text-white">
+              {isExporting ? exportProgress : printProgress}%
+            </span>
+          </div>
+          <div className="flex flex-col min-w-0 flex-1">
+            <p className="text-xs font-bold text-white truncate">
+              {isExporting ? 'Exporting to Excel...' : 'Preparing Print / PDF...'}
+            </p>
+            <p className="text-[11px] text-slate-400 truncate">
+              {progressStatusText || 'Fetching pages in background...'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
