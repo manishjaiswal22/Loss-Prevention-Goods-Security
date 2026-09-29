@@ -8,7 +8,7 @@ import TopStolenData from './TopStolenData';
 import TheftByTimeOfDay from './TheftByTimeOfDay';
 import TheftByDayOfWeek from './TheftByDayOfWeek';
 import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
-import { fetchDashboardRecord } from '../../utils/dashboardApi';
+import { fetchTodayRecord } from '../../utils/dashboardApi';
 
 const AnalyticsView = () => {
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ const AnalyticsView = () => {
   const loadMetrics = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchDashboardRecord();
+      const data = await fetchTodayRecord();
       setMetrics(data);
     } catch (error) {
       console.error('Failed to load analytics dashboard metrics:', error);
@@ -35,7 +35,7 @@ const AnalyticsView = () => {
     let ignore = false;
     (async () => {
       try {
-        const data = await fetchDashboardRecord();
+        const data = await fetchTodayRecord();
         if (!ignore && data) {
           setMetrics(data);
         }

@@ -14,8 +14,9 @@ describe('AnalyticsView Component', () => {
 
     // KPI StatCards
     expect(screen.getAllByText('Total Tags').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('12,568').length).toBeGreaterThan(0);
-    expect(screen.getByText('₹4,23,010')).toBeInTheDocument();
+    expect(screen.getAllByText('Untagged').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Theft Alerts').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Potential Loss').length).toBeGreaterThan(0);
 
     // 4 Analytical visual cards
     expect(screen.getByText('Tag Status Distribution (3D)')).toBeInTheDocument();
