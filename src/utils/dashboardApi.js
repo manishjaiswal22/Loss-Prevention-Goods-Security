@@ -88,3 +88,104 @@ export async function fetchDashboardRecord(payload = {}) {
 }
 
 export const fetchTodayRecord = fetchDashboardRecord;
+
+export async function fetchAnalyticsDashboard(payload = { Preset: 'Today' }) {
+  try {
+    const response = await fetch('/api/analyticsDashboard', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const summary = data.Summary || data;
+    const rawLoss = (summary.PotentialLossDisplay && summary.PotentialLossDisplay !== 'N/A')
+      ? summary.PotentialLossDisplay
+      : (summary.PotentialLoss ?? '0');
+
+    return {
+      preset: data.Preset,
+      startDate: data.StartDate,
+      endDate: data.EndDate,
+      totalTags: summary.TotalTags != null ? String(summary.TotalTags) : '0',
+      untagged: summary.Untagged != null ? String(summary.Untagged) : (summary.Checkout != null ? String(summary.Checkout) : '0'),
+      theftAlerts: summary.TheftAlerts != null ? String(summary.TheftAlerts) : (summary.Loss != null ? String(summary.Loss) : '0'),
+      potentialLoss: formatCurrency(rawLoss),
+      tagStatusDistribution: data.TagStatusDistribution || null,
+      highIncidentTargets: data.HighIncidentTargets || null,
+    };
+  } catch (error) {
+    console.error('Error fetching analytics dashboard data:', error);
+    throw error;
+  }
+}
+
+export async function fetchIncidentReport(payload = {}) {
+  try {
+    const body = {
+      PageSize: payload.PageSize ?? 10,
+      PageNumber: payload.PageNumber ?? 1,
+      EventType: payload.EventType ?? 'All',
+      Search: payload.Search ?? '',
+    };
+
+    if (payload.FromDate) {
+      body.FromDate = payload.FromDate;
+    }
+
+    if (payload.ToDate) {
+      body.ToDate = payload.ToDate;
+    }
+
+    if (payload.StoreCode) {
+      body.StoreCode = payload.StoreCode;
+    }
+
+    const response = await fetch('/api/incidentReport', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      code: data.Code,
+      msg: data.Msg,
+      totalAll: data.TotalAll ?? 0,
+      totalTheft: data.TotalTheft ?? 0,
+      totalUntagged: data.TotalUntagged ?? 0,
+      pageNumber: data.PageNumber ?? body.PageNumber,
+      pageSize: data.PageSize ?? body.PageSize,
+      totalRecords: data.TotalRecords ?? 0,
+      totalPages: data.TotalPages ?? 1,
+      records: (data.Records || []).map((item, idx) => ({
+        id: item.EpcCode || `inc-${item.SrNo || idx}`,
+        srNo: item.SrNo ?? idx + 1,
+        date: item.Date || '',
+        storeCode: item.StoreCode || '',
+        storeName: item.StoreName || '',
+        epc: item.EpcCode || '',
+        articleNo: item.ArticleNo || '',
+        articleDescription: item.ArticleDescription || '',
+        qty: item.Qty ?? 1,
+        amount: Number(item.Amount || 0),
+        eventType: item.EventType || 'Theft',
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching incident report data:', error);
+    throw error;
+  }
+}

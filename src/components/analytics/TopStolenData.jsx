@@ -7,14 +7,52 @@ import { TOP_STOLEN_ITEMS_DATA } from '../../data/mockAnalyticsData';
  * Displays top stolen merchandise articles and their theft counts.
  * Features full-width progress bars with article number clearly displayed below the bar.
  */
+const ITEM_COLORS = [
+  '#8b5cf6',
+  '#00a8e7',
+  '#f59e0b',
+  '#10b981',
+  '#f43f5e',
+  '#ec4899',
+  '#6366f1',
+  '#14b8a6',
+];
+
 export default function TopStolenData({
-  items = TOP_STOLEN_ITEMS_DATA,
+  items,
+  highIncidentTargets,
   className = '',
 }) {
-  const totalThefts = Math.max(
-    items.reduce((sum, i) => sum + i.theftCount, 0),
-    1
-  );
+  const targetData = highIncidentTargets;
+  const rawItems = targetData?.TopItems ?? items ?? (targetData === undefined ? TOP_STOLEN_ITEMS_DATA : []);
+
+  const itemsList = (rawItems || []).map((item, index) => {
+    const articleNumber = item.ArticleNo || item.articleNumber || item.Article || 'N/A';
+    const itemDescription = item.ArticleDesc || item.ArticleDescription || item.ItemName || item.itemDescription || 'Untitled Item';
+    const theftCount = item.Thefts != null ? Number(item.Thefts) : (item.theftCount != null ? Number(item.theftCount) : 0);
+    const lossValue = item.TotalLossAmount != null ? Number(item.TotalLossAmount) : (item.lossValue != null ? Number(item.lossValue) : 0);
+    const lossDisplay = item.LossDisplay || `₹${lossValue.toLocaleString('en-IN')}`;
+    const percentage = item.Percentage != null ? Number(item.Percentage) : null;
+    const color = item.color || ITEM_COLORS[index % ITEM_COLORS.length];
+
+    return {
+      articleNumber,
+      itemDescription,
+      theftCount,
+      lossValue,
+      lossDisplay,
+      percentage,
+      color,
+    };
+  });
+
+  const totalThefts = targetData?.TotalThefts != null
+    ? Number(targetData.TotalThefts)
+    : itemsList.reduce((sum, i) => sum + i.theftCount, 0);
+
+  const totalArticles = targetData?.TotalArticles != null
+    ? Number(targetData.TotalArticles)
+    : itemsList.length;
 
   return (
     <div
@@ -42,76 +80,86 @@ export default function TopStolenData({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
           </span>
-          {items.length} Articles · {totalThefts} Thefts
+          {totalArticles} Articles · {totalThefts} Thefts
         </span>
       </div>
 
       {/* 2. Compact Full-Width Progress Bar Items with Distinct Card Containers */}
       <div className="p-3 sm:p-4 xl:p-5 bg-slate-50/20 flex-1 flex flex-col justify-center">
         <div className="grid grid-cols-1 gap-2 sm:gap-2.5 xl:gap-3 h-[200px] sm:h-[225px] xl:h-[275px] 2xl:h-[315px] overflow-y-auto custom-scrollbar pr-1.5">
-          {items.map((item) => {
-            const sharePercent = ((item.theftCount / totalThefts) * 100).toFixed(1);
+          {itemsList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-8">
+              <span className="text-xs sm:text-sm font-semibold text-slate-400">
+                No high incident target data recorded
+              </span>
+            </div>
+          ) : (
+            itemsList.map((item) => {
+              const sharePercent = item.percentage != null
+                ? item.percentage.toFixed(1)
+                : (totalThefts > 0 ? ((item.theftCount / totalThefts) * 100).toFixed(1) : '0.0');
 
-            return (
-              <div
-                key={item.articleNumber}
-                className="p-2.5 sm:p-3 xl:p-3.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:border-rose-200 hover:shadow-xs transition-all flex flex-col gap-1.5 sm:gap-2"
-              >
-                {/* Line 1: Item Description on Left, Theft Count & Highlighted Share % on Right */}
-                <div className="flex items-center justify-between text-xs sm:text-[13px] xl:text-sm">
-                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                    <span
-                      className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 shadow-2xs"
-                      style={{ backgroundColor: item.color }}
-                    />
-                    <span className="font-semibold text-slate-800 text-xs sm:text-[13px] xl:text-sm 2xl:text-[14.5px] truncate">
-                      {item.itemDescription}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 text-xs sm:text-[12.5px]">
-                    <div className="flex items-baseline gap-1">
-                      <span className="font-bold text-rose-600 text-xs sm:text-[13px] xl:text-sm">
-                        {item.theftCount}
-                      </span>
-                      <span className="text-[10px] sm:text-[10.5px] xl:text-[11px] font-medium text-slate-500">
-                        {item.theftCount === 1 ? 'theft' : 'thefts'}
+              return (
+                <div
+                  key={item.articleNumber}
+                  className="p-2.5 sm:p-3 xl:p-3.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs hover:border-rose-200 hover:shadow-xs transition-all flex flex-col gap-1.5 sm:gap-2"
+                >
+                  {/* Line 1: Item Description on Left, Theft Count & Highlighted Share % on Right */}
+                  <div className="flex items-center justify-between text-xs sm:text-[13px] xl:text-sm">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <span
+                        className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 shadow-2xs"
+                        style={{ backgroundColor: item.color }}
+                      />
+                      <span className="font-semibold text-slate-800 text-xs sm:text-[13px] xl:text-sm 2xl:text-[14.5px] truncate">
+                        {item.itemDescription}
                       </span>
                     </div>
-                    {/* Highlighted Percentage Badge with High Contrast */}
-                    <span className="text-[10px] sm:text-[10.5px] xl:text-[11.5px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md shadow-2xs">
-                      {sharePercent}%
-                    </span>
-                  </div>
-                </div>
 
-                {/* Line 2: Full-Width Progress Bar (Share of Total) */}
-                <div className="w-full bg-slate-100 rounded-full h-1.5 sm:h-2 xl:h-2.5 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out shadow-2xs"
-                    style={{
-                      width: `${sharePercent}%`,
-                      backgroundColor: item.color,
-                    }}
-                  />
-                </div>
-
-                {/* Line 3: Article Number clearly grouped inside item container on Left, Loss Value on Right */}
-                <div className="flex items-center justify-between text-[10px] sm:text-[10.5px] xl:text-[11.5px] 2xl:text-xs text-slate-500 pt-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-400 font-medium">Article No:</span>
-                    <span className="font-mono font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70 text-[9.5px] sm:text-[10px] xl:text-[11px]">
-                      {item.articleNumber}
-                    </span>
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 text-xs sm:text-[12.5px]">
+                      <div className="flex items-baseline gap-1">
+                        <span className="font-bold text-rose-600 text-xs sm:text-[13px] xl:text-sm">
+                          {item.theftCount}
+                        </span>
+                        <span className="text-[10px] sm:text-[10.5px] xl:text-[11px] font-medium text-slate-500">
+                          {item.theftCount === 1 ? 'theft' : 'thefts'}
+                        </span>
+                      </div>
+                      {/* Highlighted Percentage Badge with High Contrast */}
+                      <span className="text-[10px] sm:text-[10.5px] xl:text-[11.5px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-md shadow-2xs">
+                        {sharePercent}%
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="font-medium text-slate-500">
-                    Loss: <span className="font-bold text-slate-900 text-[10.5px] sm:text-[11.5px] xl:text-[12.5px] 2xl:text-[13.5px]">₹{item.lossValue.toLocaleString('en-IN')}</span>
+                  {/* Line 2: Full-Width Progress Bar (Share of Total) */}
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 sm:h-2 xl:h-2.5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500 ease-out shadow-2xs"
+                      style={{
+                        width: `${Math.min(Math.max(Number(sharePercent), 2), 100)}%`,
+                        backgroundColor: item.color,
+                      }}
+                    />
+                  </div>
+
+                  {/* Line 3: Article Number clearly grouped inside item container on Left, Loss Value on Right */}
+                  <div className="flex items-center justify-between text-[10px] sm:text-[10.5px] xl:text-[11.5px] 2xl:text-xs text-slate-500 pt-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-slate-400 font-medium">Article No:</span>
+                      <span className="font-mono font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70 text-[9.5px] sm:text-[10px] xl:text-[11px]">
+                        {item.articleNumber}
+                      </span>
+                    </div>
+
+                    <div className="font-medium text-slate-500">
+                      Loss: <span className="font-bold text-slate-900 text-[10.5px] sm:text-[11.5px] xl:text-[12.5px] 2xl:text-[13.5px]">{item.lossDisplay}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>

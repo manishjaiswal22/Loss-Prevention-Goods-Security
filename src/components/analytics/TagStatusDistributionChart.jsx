@@ -21,17 +21,51 @@ export default function TagStatusDistributionChart({
     ? Number(String(metrics.theftAlerts).replace(/,/g, ''))
     : null;
 
-  const totalNum = parsedTotal != null ? parsedTotal : (data?.total || STATCARD_METRICS.totalTags);
-  const untaggedNum = parsedUntagged != null ? parsedUntagged : STATCARD_METRICS.untagged;
-  const theftNum = parsedLoss != null ? parsedLoss : STATCARD_METRICS.theftAlerts;
+  const dist = metrics?.tagStatusDistribution;
 
-  const untaggedPct = totalNum > 0 ? Number(((untaggedNum / totalNum) * 100).toFixed(1)) : 2.5;
-  const theftPct = totalNum > 0 ? Number(((theftNum / totalNum) * 100).toFixed(1)) : 2.2;
-  const safePct = Number(Math.max(0, 100 - untaggedPct - theftPct).toFixed(1));
+  const totalNum = dist?.TotalTags != null
+    ? Number(dist.TotalTags)
+    : (parsedTotal != null ? parsedTotal : 0);
+
+  const untaggedNum = dist?.Untagged != null
+    ? Number(dist.Untagged)
+    : (parsedUntagged != null ? parsedUntagged : 0);
+
+  const theftNum = dist?.TheftAlerts != null
+    ? Number(dist.TheftAlerts)
+    : (parsedLoss != null ? parsedLoss : 0);
+
+  const safeNum = dist?.ActiveVerified != null
+    ? Number(dist.ActiveVerified)
+    : Math.max(0, totalNum - untaggedNum - theftNum);
+
+  let safePct = 0;
+  let untaggedPct = 0;
+  let theftPct = 0;
+
+  if (totalNum > 0) {
+    if (dist?.SafePercent != null || dist?.ActiveVerifiedPercent != null) {
+      safePct = Number(dist.SafePercent ?? dist.ActiveVerifiedPercent);
+    } else {
+      safePct = Number(((safeNum / totalNum) * 100).toFixed(1));
+    }
+
+    if (dist?.UntaggedPercent != null) {
+      untaggedPct = Number(dist.UntaggedPercent);
+    } else {
+      untaggedPct = Number(((untaggedNum / totalNum) * 100).toFixed(1));
+    }
+
+    if (dist?.TheftAlertPercent != null) {
+      theftPct = Number(dist.TheftAlertPercent);
+    } else {
+      theftPct = Number(((theftNum / totalNum) * 100).toFixed(1));
+    }
+  }
 
   const potentialLossDisplay = metrics?.potentialLoss && metrics.potentialLoss !== '...'
     ? metrics.potentialLoss
-    : STATCARD_METRICS.potentialLoss;
+    : (dist?.PotentialLossDisplay ? `₹${dist.PotentialLossDisplay}` : '₹0');
 
   // 3D Isometric Geometry Parameters
   const cx = 110;
@@ -54,11 +88,8 @@ export default function TagStatusDistributionChart({
       sublabel: 'Active & verified in store',
       count: totalNum,
       percentage: safePct,
-      startDeg: 135,
-      endDeg: 405, // 45 deg
-      pullDx: 0,
-      pullDy: -8,
       color: '#10b981',
+      darkColor: '#047857',
       topGrad: 'url(#emeraldTop3D)',
       sideGrad: 'url(#emeraldSide3D)',
       icon: Tag,
@@ -70,11 +101,8 @@ export default function TagStatusDistributionChart({
       sublabel: 'Tag not removed at POS',
       count: untaggedNum,
       percentage: untaggedPct,
-      startDeg: 45,
-      endDeg: 90,
-      pullDx: 8,
-      pullDy: 7,
       color: '#00a8e7',
+      darkColor: '#0284c7',
       topGrad: 'url(#skyTop3D)',
       sideGrad: 'url(#skySide3D)',
       icon: TagX,
@@ -86,11 +114,8 @@ export default function TagStatusDistributionChart({
       sublabel: 'Gate scanner alarms',
       count: theftNum,
       percentage: theftPct,
-      startDeg: 90,
-      endDeg: 135,
-      pullDx: -8,
-      pullDy: 7,
       color: '#f43f5e',
+      darkColor: '#be123c',
       topGrad: 'url(#roseTop3D)',
       sideGrad: 'url(#roseSide3D)',
       icon: AlertTriangle,
@@ -98,112 +123,84 @@ export default function TagStatusDistributionChart({
     },
   ];
 
+  const getFrontRimIntervals = (startDeg, endDeg) => {
+    const intervals = [];
+    for (let k = -1; k <= 2; k++) {
+      const frontStart = k * 360;
+      const frontEnd = k * 360 + 180;
+      const overlapStart = Math.max(startDeg, frontStart);
+      const overlapEnd = Math.min(endDeg, frontEnd);
+      if (overlapEnd - overlapStart > 0.1) {
+        intervals.push({
+          start: ((overlapStart % 360) + 360) % 360,
+          end: ((overlapEnd % 360) + 360) % 360,
+        });
+      }
+    }
+    return intervals;
+  };
+
+  let currentDeg = 45;
+  const sliceAngles = {};
+  SLICES.forEach((s) => {
+    const pct = totalNum > 0 ? (s.id === 'total-tags' ? safePct : s.percentage) : 0;
+    const sweep = (pct / 100) * 360;
+    const start = currentDeg;
+    const end = currentDeg + sweep;
+    currentDeg = end;
+    const mid = start + sweep / 2;
+    const pullDx = Math.round(Math.cos(toRad(mid)) * 8);
+    const pullDy = Math.round(Math.sin(toRad(mid)) * 7);
+    sliceAngles[s.id] = { start, end, sweep, mid, pullDx, pullDy };
+  });
+
+  const sortedSlices = [...SLICES]
+    .filter((s) => sliceAngles[s.id] && sliceAngles[s.id].sweep > 0.5)
+    .sort((a, b) => {
+      const midA = sliceAngles[a.id].mid;
+      const midB = sliceAngles[b.id].mid;
+      return Math.sin(toRad(midA)) - Math.sin(toRad(midB));
+    });
+
   // Render SVG paths for a slice in 3D
   const render3DSlice = (slice) => {
+    if (totalNum === 0) return null;
+    const angleInfo = sliceAngles[slice.id];
+    if (!angleInfo || angleInfo.sweep <= 0.5) return null;
+
+    const { start, end, sweep, pullDx, pullDy } = angleInfo;
     const isHovered = activeSegment === slice.id;
     const transformStyle = isHovered
-      ? `translate(${slice.pullDx}px, ${slice.pullDy}px)`
+      ? `translate(${pullDx}px, ${pullDy}px)`
       : 'translate(0px, 0px)';
 
-    if (slice.id === 'untagged') {
-      // 45 deg to 90 deg (Front-Right)
-      const p45 = pt(45);
-      const p90 = pt(90);
-
+    if (sweep >= 359.5) {
       return (
         <g
           key={slice.id}
           className="cursor-pointer transition-transform duration-300 ease-out"
-          style={{
-            transform: transformStyle,
-            filter: isHovered ? 'drop-shadow(0 10px 12px rgba(0,168,231,0.4))' : 'none',
-          }}
+          style={{ transform: transformStyle }}
           onMouseEnter={() => setActiveSegment(slice.id)}
           onMouseLeave={() => setActiveSegment(null)}
         >
-          {/* Radial Wall at 45 deg */}
           <path
-            d={`M ${cx} ${cy} L ${p45.x} ${p45.y} L ${p45.x} ${p45.y + depth} L ${cx} ${cy + depth} Z`}
-            fill="#0369a1"
-            opacity="0.9"
-          />
-
-          {/* Front Outer Rim Wall */}
-          <path
-            d={`M ${p45.x} ${p45.y} A ${rx} ${ry} 0 0 1 ${p90.x} ${p90.y} L ${p90.x} ${p90.y + depth} A ${rx} ${ry} 0 0 0 ${p45.x} ${p45.y + depth} Z`}
+            d={`M ${cx - rx} ${cy} A ${rx} ${ry} 0 0 0 ${cx + rx} ${cy} L ${cx + rx} ${cy + depth} A ${rx} ${ry} 0 0 1 ${cx - rx} ${cy + depth} Z`}
             fill={slice.sideGrad}
           />
-
-          {/* Radial Wall at 90 deg */}
-          <path
-            d={`M ${cx} ${cy} L ${p90.x} ${p90.y} L ${p90.x} ${p90.y + depth} L ${cx} ${cy + depth} Z`}
-            fill="#0284c7"
-            opacity="0.95"
-          />
-
-          {/* Top Elliptical Face */}
-          <path
-            d={`M ${cx} ${cy} L ${p45.x} ${p45.y} A ${rx} ${ry} 0 0 1 ${p90.x} ${p90.y} Z`}
-            fill={slice.topGrad}
-            stroke="#e0f2fe"
-            strokeWidth="0.75"
-          />
+          <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={slice.topGrad} stroke="#ffffff" strokeWidth="0.75" />
         </g>
       );
     }
 
-    if (slice.id === 'theft-alerts') {
-      // 90 deg to 135 deg (Front-Left)
-      const p90 = pt(90);
-      const p135 = pt(135);
+    const pStart = pt(start);
+    const pEnd = pt(end);
+    const largeArc = sweep > 180 ? 1 : 0;
 
-      return (
-        <g
-          key={slice.id}
-          className="cursor-pointer transition-transform duration-300 ease-out"
-          style={{
-            transform: transformStyle,
-            filter: isHovered ? 'drop-shadow(0 10px 12px rgba(244,63,94,0.45))' : 'none',
-          }}
-          onMouseEnter={() => setActiveSegment(slice.id)}
-          onMouseLeave={() => setActiveSegment(null)}
-        >
-          {/* Radial Wall at 90 deg */}
-          <path
-            d={`M ${cx} ${cy} L ${p90.x} ${p90.y} L ${p90.x} ${p90.y + depth} L ${cx} ${cy + depth} Z`}
-            fill="#9f1239"
-            opacity="0.95"
-          />
+    const topPath = `M ${cx} ${cy} L ${pStart.x} ${pStart.y} A ${rx} ${ry} 0 ${largeArc} 1 ${pEnd.x} ${pEnd.y} Z`;
+    const wallStart = `M ${cx} ${cy} L ${pStart.x} ${pStart.y} L ${pStart.x} ${pStart.y + depth} L ${cx} ${cy + depth} Z`;
+    const wallEnd = `M ${cx} ${cy} L ${pEnd.x} ${pEnd.y} L ${pEnd.x} ${pEnd.y + depth} L ${cx} ${cy + depth} Z`;
 
-          {/* Front Outer Rim Wall */}
-          <path
-            d={`M ${p90.x} ${p90.y} A ${rx} ${ry} 0 0 1 ${p135.x} ${p135.y} L ${p135.x} ${p135.y + depth} A ${rx} ${ry} 0 0 0 ${p90.x} ${p90.y + depth} Z`}
-            fill={slice.sideGrad}
-          />
-
-          {/* Radial Wall at 135 deg */}
-          <path
-            d={`M ${cx} ${cy} L ${p135.x} ${p135.y} L ${p135.x} ${p135.y + depth} L ${cx} ${cy + depth} Z`}
-            fill="#be123c"
-            opacity="0.9"
-          />
-
-          {/* Top Elliptical Face */}
-          <path
-            d={`M ${cx} ${cy} L ${p90.x} ${p90.y} A ${rx} ${ry} 0 0 1 ${p135.x} ${p135.y} Z`}
-            fill={slice.topGrad}
-            stroke="#ffe4e6"
-            strokeWidth="0.75"
-          />
-        </g>
-      );
-    }
-
-    // Default: Total Tags (135 deg to 405 deg / 45 deg, Clockwise across the back)
-    const p135 = pt(135);
-    const p45 = pt(45);
-    const p0 = pt(0);
-    const p180 = pt(180);
+    const rimIntervals = getFrontRimIntervals(start, end);
 
     return (
       <g
@@ -211,44 +208,20 @@ export default function TagStatusDistributionChart({
         className="cursor-pointer transition-transform duration-300 ease-out"
         style={{
           transform: transformStyle,
-          filter: isHovered ? 'drop-shadow(0 10px 14px rgba(16,185,129,0.35))' : 'none',
+          filter: isHovered ? `drop-shadow(0 10px 14px ${slice.color}55)` : 'none',
         }}
         onMouseEnter={() => setActiveSegment(slice.id)}
         onMouseLeave={() => setActiveSegment(null)}
       >
-        {/* Visible Front-Right Rim (0 deg to 45 deg) */}
-        <path
-          d={`M ${p0.x} ${p0.y} A ${rx} ${ry} 0 0 1 ${p45.x} ${p45.y} L ${p45.x} ${p45.y + depth} A ${rx} ${ry} 0 0 0 ${p0.x} ${p0.y + depth} Z`}
-          fill={slice.sideGrad}
-        />
-
-        {/* Visible Front-Left Rim (135 deg to 180 deg) */}
-        <path
-          d={`M ${p135.x} ${p135.y} A ${rx} ${ry} 0 0 1 ${p180.x} ${p180.y} L ${p180.x} ${p180.y + depth} A ${rx} ${ry} 0 0 0 ${p135.x} ${p135.y + depth} Z`}
-          fill={slice.sideGrad}
-        />
-
-        {/* Radial Wall at 45 deg */}
-        <path
-          d={`M ${cx} ${cy} L ${p45.x} ${p45.y} L ${p45.x} ${p45.y + depth} L ${cx} ${cy + depth} Z`}
-          fill="#047857"
-          opacity="0.85"
-        />
-
-        {/* Radial Wall at 135 deg */}
-        <path
-          d={`M ${cx} ${cy} L ${p135.x} ${p135.y} L ${p135.x} ${p135.y + depth} L ${cx} ${cy + depth} Z`}
-          fill="#065f46"
-          opacity="0.85"
-        />
-
-        {/* Top Elliptical Face (Major Back Arc) */}
-        <path
-          d={`M ${cx} ${cy} L ${p135.x} ${p135.y} A ${rx} ${ry} 0 1 1 ${p45.x} ${p45.y} Z`}
-          fill={slice.topGrad}
-          stroke="#d1fae5"
-          strokeWidth="0.75"
-        />
+        <path d={wallStart} fill={slice.darkColor || slice.color} opacity="0.82" />
+        <path d={wallEnd} fill={slice.darkColor || slice.color} opacity="0.9" />
+        {rimIntervals.map((interval, i) => {
+          const p1 = pt(interval.start);
+          const p2 = pt(interval.end);
+          const d = `M ${p1.x} ${p1.y} A ${rx} ${ry} 0 0 1 ${p2.x} ${p2.y} L ${p2.x} ${p2.y + depth} A ${rx} ${ry} 0 0 0 ${p1.x} ${p1.y + depth} Z`;
+          return <path key={i} d={d} fill={slice.sideGrad} />;
+        })}
+        <path d={topPath} fill={slice.topGrad} stroke="#ffffff" strokeWidth="0.75" />
       </g>
     );
   };
@@ -351,9 +324,37 @@ export default function TagStatusDistributionChart({
               />
 
               {/* Draw 3D Slices: Back slice first, Front slices on top */}
-              {render3DSlice(SLICES[0])}
-              {render3DSlice(SLICES[1])}
-              {render3DSlice(SLICES[2])}
+              {totalNum === 0 ? (
+                <g>
+                  <path
+                    d={`M ${cx - rx} ${cy} A ${rx} ${ry} 0 0 0 ${cx + rx} ${cy} L ${cx + rx} ${cy + depth} A ${rx} ${ry} 0 0 1 ${cx - rx} ${cy + depth} Z`}
+                    fill="#e2e8f0"
+                  />
+                  <ellipse
+                    cx={cx}
+                    cy={cy}
+                    rx={rx}
+                    ry={ry}
+                    fill="#f8fafc"
+                    stroke="#cbd5e1"
+                    strokeWidth="1.5"
+                    strokeDasharray="5 3"
+                  />
+                  <text
+                    x={cx}
+                    y={cy + 4}
+                    textAnchor="middle"
+                    fill="#94a3b8"
+                    fontSize="11"
+                    fontWeight="600"
+                    letterSpacing="0.02em"
+                  >
+                    0 Tags Recorded
+                  </text>
+                </g>
+              ) : (
+                sortedSlices.map((slice) => render3DSlice(slice))
+              )}
             </svg>
           </div>
 
@@ -371,13 +372,10 @@ export default function TagStatusDistributionChart({
                 <span className="font-bold text-slate-900">
                   {activeData.count.toLocaleString('en-IN')}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  ({activeData.percentage}%)
-                </span>
               </div>
             ) : (
               <span className="text-[10.5px] font-semibold text-slate-400">
-                Hover slices to inspect 3D layers
+                {totalNum === 0 ? 'No tag data recorded' : 'Hover slices to inspect 3D layers'}
               </span>
             )}
           </div>
@@ -394,9 +392,17 @@ export default function TagStatusDistributionChart({
                 key={slice.id}
                 onMouseEnter={() => setActiveSegment(slice.id)}
                 onMouseLeave={() => setActiveSegment(null)}
+                style={
+                  isHovered
+                    ? {
+                        borderColor: slice.color,
+                        boxShadow: `0 0 0 1.5px ${slice.color}60, 0 2px 8px ${slice.color}25`,
+                      }
+                    : {}
+                }
                 className={`flex items-center justify-between p-2 sm:p-2.5 xl:p-3 2xl:p-3.5 rounded-xl transition-all border cursor-pointer ${
                   isHovered
-                    ? 'bg-white shadow-xs border-slate-300 ring-1 ring-slate-200'
+                    ? 'bg-white shadow-xs'
                     : 'bg-white/70 border-slate-200/70 hover:bg-white hover:border-slate-300'
                 }`}
               >
@@ -408,26 +414,16 @@ export default function TagStatusDistributionChart({
                   >
                     <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 xl:w-4.5 xl:h-4.5" />
                   </div>
-                  <div className="min-w-0">
-                    <span className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[14.5px] font-bold text-slate-900 truncate block">
-                      {slice.label}
-                    </span>
-                    <span className="text-[10px] sm:text-[10.5px] xl:text-[11.5px] 2xl:text-xs text-slate-500 block truncate mt-0.5">
-                      {slice.sublabel}
-                    </span>
-                  </div>
+                  <span className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[14.5px] font-bold text-slate-900 truncate">
+                    {slice.label}
+                  </span>
                 </div>
 
                 {/* Right: Count & Percentage Only (NO loss amount here) */}
                 <div className="flex items-center gap-1.5 text-xs shrink-0 text-right">
-                  <div className="flex flex-col items-end leading-tight">
-                    <span className="font-bold text-slate-900 text-xs sm:text-[13px] xl:text-sm 2xl:text-base">
-                      {slice.count.toLocaleString('en-IN')}
-                    </span>
-                    <span className="text-[9.5px] sm:text-[10px] xl:text-[11px] 2xl:text-xs font-semibold text-slate-500">
-                      {slice.percentage}%
-                    </span>
-                  </div>
+                  <span className="font-bold text-slate-900 text-xs sm:text-[13px] xl:text-sm 2xl:text-base">
+                    {slice.count.toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
             );
@@ -438,7 +434,7 @@ export default function TagStatusDistributionChart({
       {/* 3. Bottom Context Sub-bar: Potential Loss shown ONLY here */}
       <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-emerald-50/40 border-t border-emerald-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer">
         <span className="truncate mr-2">
-          Total Tags: <strong className="text-emerald-700 font-bold">{totalNum.toLocaleString('en-IN')}</strong> ({safePct}% Safe)
+          Total Tags: <strong className="text-emerald-700 font-bold">{totalNum.toLocaleString('en-IN')}</strong>
         </span>
         <span className="font-semibold text-rose-600 shrink-0 flex items-center gap-1">
           <TrendingDown className="w-3 h-3 xl:w-3.5 xl:h-3.5" />

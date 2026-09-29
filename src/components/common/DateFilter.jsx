@@ -50,6 +50,7 @@ export default function DateFilter({
     if (controlledDate === undefined) {
       setInternalDate(preset);
     }
+    setIsOpen(false);
 
     if (onDateChange) {
       onDateChange(preset, { startDate: start, endDate: end, preset });

@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import PageHeader from '../common/PageHeader';
 import StoreFilter from '../common/StoreFilter';
 import DateFilter from '../common/DateFilter';
 import StatCard from '../common/StatCard';
 import DataTable from '../common/DataTable';
-import { MOCK_REPORTS_DATA } from '../../data/mockReportsData';
+import { fetchIncidentReport } from '../../utils/dashboardApi';
 import * as XLSX from 'xlsx';
 import {
   Search,
@@ -18,46 +18,137 @@ import {
   X,
 } from 'lucide-react';
 
+const formatApiDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const ReportsView = () => {
   const [selectedStore, setSelectedStore] = useState('all');
+  const [dateRange, setDateRange] = useState(() => {
+    const today = new Date();
+    const formattedToday = formatApiDate(today);
+    return {
+      label: 'Today',
+      fromDate: formattedToday,
+      toDate: formattedToday,
+    };
+  });
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEventType, setSelectedEventType] = useState('all'); // 'all' | 'Theft' | 'Untagged'
+  const [selectedEventType, setSelectedEventType] = useState('All'); // 'All' | 'Theft' | 'Untagged'
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [reportData, setReportData] = useState({
+    records: [],
+    totalRecords: 0,
+    totalAll: 0,
+    totalTheft: 0,
+    totalUntagged: 0,
+    totalPages: 1,
+  });
+
+  const loadReport = useCallback(async (params) => {
+    setLoading(true);
+    try {
+      const res = await fetchIncidentReport({
+        PageSize: params.pageSize,
+        PageNumber: params.pageNumber,
+        EventType: params.eventType,
+        Search: params.search,
+        StoreCode: params.storeCode !== 'all' ? params.storeCode : undefined,
+        FromDate: params.fromDate || undefined,
+        ToDate: params.toDate || undefined,
+      });
+      setReportData(res);
+    } catch (error) {
+      console.error('Failed to load incident report:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadReport({
+        pageSize: rowsPerPage,
+        pageNumber: currentPage,
+        eventType: selectedEventType,
+        search: searchQuery,
+        storeCode: selectedStore,
+        fromDate: dateRange.fromDate,
+        toDate: dateRange.toDate,
+      });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [rowsPerPage, currentPage, selectedEventType, searchQuery, selectedStore, dateRange.fromDate, dateRange.toDate, loadReport]);
+
+  const handleDateChange = (label, rangeInfo) => {
+    let from = '';
+    let to = '';
+    if (rangeInfo?.startDate && rangeInfo?.endDate) {
+      from = formatApiDate(rangeInfo.startDate);
+      to = formatApiDate(rangeInfo.endDate);
+    } else {
+      const today = new Date();
+      if (label === 'Today') {
+        from = formatApiDate(today);
+        to = formatApiDate(today);
+      } else if (label === 'Yesterday') {
+        const y = new Date(today);
+        y.setDate(today.getDate() - 1);
+        from = formatApiDate(y);
+        to = formatApiDate(y);
+      } else if (label === 'Last 7 Days') {
+        const d7 = new Date(today);
+        d7.setDate(today.getDate() - 6);
+        from = formatApiDate(d7);
+        to = formatApiDate(today);
+      } else if (label === 'This Month') {
+        const mStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        from = formatApiDate(mStart);
+        to = formatApiDate(today);
+      } else if (label === 'Last 30 Days') {
+        const d30 = new Date(today);
+        d30.setDate(today.getDate() - 29);
+        from = formatApiDate(d30);
+        to = formatApiDate(today);
+      }
+    }
+    setDateRange({ label, fromDate: from, toDate: to });
+    setCurrentPage(1);
+  };
 
   const handleStoreChange = (storeId) => {
     setSelectedStore(storeId);
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-    }, 600);
+    setCurrentPage(1);
+  };
+
+  const handleEventTypeChange = (type) => {
+    setSelectedEventType(type);
+    setCurrentPage(1);
+  };
+
+  const handleRowsPerPageChange = (newRpp) => {
+    setRowsPerPage(newRpp);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
   };
 
   // 1. Filter Logic
-  const filteredData = useMemo(() => {
-    return MOCK_REPORTS_DATA.filter((item) => {
-      // Store filter
-      if (selectedStore !== 'all' && item.storeCode !== selectedStore) {
-        return false;
-      }
-      // Event Type filter
-      if (selectedEventType !== 'all' && item.eventType !== selectedEventType) {
-        return false;
-      }
-      // Search query filter (EPC, Article No, Description, Store Code, Store Name)
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchEpc = item.epc.toLowerCase().includes(query);
-        const matchArtNo = item.articleNo.toLowerCase().includes(query);
-        const matchDesc = item.articleDescription.toLowerCase().includes(query);
-        const matchStoreCode = item.storeCode.toLowerCase().includes(query);
-        const matchStoreName = item.storeName.toLowerCase().includes(query);
-        return matchEpc || matchArtNo || matchDesc || matchStoreCode || matchStoreName;
-      }
-      return true;
-    });
-  }, [selectedStore, selectedEventType, searchQuery]);
+  const filteredData = reportData.records;
 
   // 2. React DataTable Columns Definition
   const columns = useMemo(
@@ -74,8 +165,8 @@ const ReportsView = () => {
       {
         id: 'date',
         name: 'Date',
-        selector: (row) => row.timestamp,
-        sortFunction: (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        selector: (row) => row.date,
+        sortFunction: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
         sortable: true,
         width: '110px',
         cell: (row) => <span className="font-semibold text-slate-800 text-[11px]">{row.date}</span>,
@@ -194,8 +285,58 @@ const ReportsView = () => {
   );
 
   // 3. Export Handlers
-  const exportToExcel = () => {
-    const exportData = filteredData.map((item, idx) => ({
+  const exportToExcel = async () => {
+    setExportMenuOpen(false);
+    setIsExporting(true);
+    setExportProgress(0);
+
+    let allRecords = [];
+    const totalCount = reportData.totalRecords || 0;
+
+    try {
+      if (totalCount <= reportData.records.length && reportData.records.length > 0) {
+        allRecords = reportData.records;
+        setExportProgress(100);
+      } else {
+        const batchSize = 2000;
+        const totalPages = Math.ceil(totalCount / batchSize) || 1;
+        let fetchedCount = 0;
+
+        for (let page = 1; page <= totalPages; page++) {
+          const res = await fetchIncidentReport({
+            PageSize: batchSize,
+            PageNumber: page,
+            EventType: selectedEventType,
+            Search: searchQuery,
+            StoreCode: selectedStore !== 'all' ? selectedStore : undefined,
+            FromDate: dateRange.fromDate || undefined,
+            ToDate: dateRange.toDate || undefined,
+          });
+
+          const batch = res.records || [];
+          allRecords.push(...batch);
+          fetchedCount += batch.length;
+
+          const progress = Math.min(100, Math.round((page / totalPages) * 100));
+          setExportProgress(progress);
+
+          if (batch.length < batchSize || fetchedCount >= totalCount) {
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch records for export:', error);
+    }
+
+    if (allRecords.length === 0) {
+      allRecords = reportData.records;
+    }
+
+    setExportProgress(100);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    const exportData = allRecords.map((item, idx) => ({
       'Sr No': idx + 1,
       'Date': item.date,
       'Time': item.time,
@@ -226,9 +367,22 @@ const ReportsView = () => {
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Security Incidents');
-    const dateStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `goods_security_report_${dateStr}.xlsx`);
-    setExportMenuOpen(false);
+    let dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
+    if (dateRange.fromDate && dateRange.toDate) {
+      const fromFormatted = dateRange.fromDate.replace(/-/g, '_');
+      const toFormatted = dateRange.toDate.replace(/-/g, '_');
+      dateStr = fromFormatted === toFormatted
+        ? fromFormatted
+        : `${fromFormatted}_to_${toFormatted}`;
+    } else if (dateRange.fromDate) {
+      dateStr = dateRange.fromDate.replace(/-/g, '_');
+    }
+    const typeCapitalized = selectedEventType
+      ? selectedEventType.charAt(0).toUpperCase() + selectedEventType.slice(1).toLowerCase()
+      : 'All';
+    XLSX.writeFile(workbook, `${typeCapitalized}_Report_${dateStr}.xlsx`);
+    setIsExporting(false);
+    setExportProgress(0);
   };
 
 
@@ -246,7 +400,7 @@ const ReportsView = () => {
       <div className="no-print">
         <PageHeader title="Reports">
           <StoreFilter selectedStore={selectedStore} onStoreChange={handleStoreChange} />
-          <DateFilter />
+          <DateFilter selectedDate={dateRange.label} onDateChange={handleDateChange} />
         </PageHeader>
       </div>
 
@@ -254,28 +408,28 @@ const ReportsView = () => {
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
         <StatCard
           title="Total Tags"
-          count="12,568"
+          count={reportData.totalAll.toLocaleString('en-IN')}
           icon={Tag}
           variant="green"
           loading={loading}
         />
         <StatCard
           title="Untagged"
-          count="315"
+          count={reportData.totalUntagged.toLocaleString('en-IN')}
           icon={TagX}
           variant="blue"
           loading={loading}
         />
         <StatCard
           title="Theft Alerts"
-          count="280"
+          count={reportData.totalTheft.toLocaleString('en-IN')}
           icon={AlertTriangle}
           variant="gray"
           loading={loading}
         />
         <StatCard
           title="Potential Loss"
-          count="₹4,23,010"
+          count={`₹${reportData.records.reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString('en-IN')}`}
           icon={TrendingDown}
           variant="rose"
           loading={loading}
@@ -316,9 +470,13 @@ const ReportsView = () => {
             data={filteredData}
             keyField="id"
             pagination
+            paginationServer
+            paginationTotalRows={reportData.totalRecords}
+            paginationDefaultPage={currentPage}
             paginationPerPage={rowsPerPage}
             paginationRowsPerPageOptions={[10, 20, 50]}
-            onChangeRowsPerPage={(newRpp) => setRowsPerPage(newRpp)}
+            onChangeRowsPerPage={handleRowsPerPageChange}
+            onChangePage={setCurrentPage}
             selectableRows={false}
             highlightOnHover
             pointerOnHover={false}
@@ -334,13 +492,16 @@ const ReportsView = () => {
                       type="text"
                       placeholder="Search by EPC, Article No, Description, Store..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={handleSearchChange}
                       className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:border-[#00a8e7] focus:ring-2 focus:ring-[#00a8e7]/15 transition-all text-slate-900 placeholder-slate-400 font-medium"
                     />
                     {searchQuery && (
                       <button
                         type="button"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => {
+                          setSearchQuery('');
+                          setCurrentPage(1);
+                        }}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
                         title="Clear Search"
                       >
@@ -355,7 +516,7 @@ const ReportsView = () => {
                     <div className="relative inline-block">
                       <select
                         value={rowsPerPage}
-                        onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                        onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
                         className="appearance-none bg-white border border-slate-300 hover:border-slate-300 rounded-xl pl-3 pr-7 py-1 text-xs sm:text-sm font-bold text-slate-800 outline-none focus:border-[#00a8e7] focus:ring-1 focus:ring-[#00a8e7]/20 cursor-pointer shadow-2xs transition-all"
                       >
                         <option value={10}>10</option>
@@ -373,18 +534,18 @@ const ReportsView = () => {
                   <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
                     <button
                       type="button"
-                      onClick={() => setSelectedEventType('all')}
+                      onClick={() => handleEventTypeChange('All')}
                       className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        selectedEventType === 'all'
+                        selectedEventType === 'All'
                           ? 'bg-white text-slate-900 shadow-2xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      All ({MOCK_REPORTS_DATA.length})
+                      All ({reportData.totalAll})
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedEventType('Theft')}
+                      onClick={() => handleEventTypeChange('Theft')}
                       className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                         selectedEventType === 'Theft'
                           ? 'bg-rose-500 text-white shadow-2xs shadow-rose-500/25'
@@ -392,11 +553,11 @@ const ReportsView = () => {
                       }`}
                     >
                       <AlertTriangle className="w-3 h-3" />
-                      Theft
+                      Theft ({reportData.totalTheft})
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedEventType('Untagged')}
+                      onClick={() => handleEventTypeChange('Untagged')}
                       className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                         selectedEventType === 'Untagged'
                           ? 'bg-[#00a8e7] text-white shadow-2xs shadow-sky-500/25'
@@ -404,7 +565,7 @@ const ReportsView = () => {
                       }`}
                     >
                       <TagX className="w-3 h-3" />
-                      Untagged
+                      Untagged ({reportData.totalUntagged})
                     </button>
                   </div>
 
@@ -415,11 +576,20 @@ const ReportsView = () => {
                       <button
                         type="button"
                         onClick={exportToExcel}
-                        className="h-full pl-3.5 pr-2.5 bg-transparent hover:bg-black/10 active:bg-black/20 text-white text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+                        disabled={isExporting}
+                        className="relative h-full pl-3.5 pr-2.5 bg-transparent hover:bg-black/10 active:bg-black/20 text-white text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-90 overflow-hidden"
                         title="Download Excel (.xlsx)"
                       >
-                        <FileSpreadsheet className="w-4 h-4 shrink-0" />
-                        <span className="whitespace-nowrap">Export to Excel</span>
+                        {isExporting && (
+                          <div
+                            className="absolute left-0 top-0 bottom-0 bg-emerald-800/80 transition-all duration-200 pointer-events-none"
+                            style={{ width: `${exportProgress}%` }}
+                          />
+                        )}
+                        <FileSpreadsheet className="w-4 h-4 shrink-0 relative z-10" />
+                        <span className="whitespace-nowrap relative z-10">
+                          {isExporting ? `Exporting... ${exportProgress}%` : 'Export to Excel'}
+                        </span>
                       </button>
 
                       {/* Precise Vertical Divider Line */}
@@ -443,10 +613,11 @@ const ReportsView = () => {
                         <button
                           type="button"
                           onClick={exportToExcel}
-                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                          disabled={isExporting}
+                          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer disabled:opacity-75"
                         >
                           <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span>Microsoft Excel (.xlsx)</span>
+                          <span>{isExporting ? `Exporting... ${exportProgress}%` : 'Microsoft Excel (.xlsx)'}</span>
                         </button>
                         <button
                           type="button"

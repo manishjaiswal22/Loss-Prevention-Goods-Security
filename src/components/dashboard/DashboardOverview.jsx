@@ -5,7 +5,6 @@ import StoreFilter from '../common/StoreFilter';
 import StatCard from '../common/StatCard';
 import EpcCard from '../common/EpcCard';
 import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
-import { MOCK_UNTAGGED_ITEMS } from '../../data/mockEpcData';
 import { fetchDashboardRecord } from '../../utils/dashboardApi';
 
 const DashboardOverview = () => {

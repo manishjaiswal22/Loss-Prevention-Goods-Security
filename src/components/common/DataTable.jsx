@@ -43,6 +43,9 @@ const DataTable = ({
   pagination = true,
   paginationPerPage = 10,
   paginationRowsPerPageOptions = [10, 20, 50, 100],
+  paginationServer = false,
+  paginationTotalRows = 0,
+  paginationDefaultPage = 1,
   onChangeRowsPerPage,
   onChangePage,
   selectableRows = false,
@@ -60,14 +63,21 @@ const DataTable = ({
   defaultSortFieldId = null,
   defaultSortAsc = true,
   onRowClicked = null,
+  onSort = null,
 }) => {
   // 1. Internal Sort State
   const [sortFieldId, setSortFieldId] = useState(defaultSortFieldId);
   const [sortDirection, setSortDirection] = useState(defaultSortAsc ? 'asc' : 'desc');
 
   // 2. Internal Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(paginationDefaultPage);
   const [rowsPerPage, setRowsPerPage] = useState(paginationPerPage);
+
+  const [prevDefaultPage, setPrevDefaultPage] = useState(paginationDefaultPage);
+  if (paginationDefaultPage !== prevDefaultPage) {
+    setPrevDefaultPage(paginationDefaultPage);
+    setCurrentPage(paginationDefaultPage);
+  }
 
   // Sync rowsPerPage if parent changes paginationPerPage
   const [prevPropRpp, setPrevPropRpp] = useState(paginationPerPage);
@@ -89,10 +99,17 @@ const DataTable = ({
     const colId = column.id || column.name || index;
 
     if (sortFieldId === colId) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      const nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
+      setSortDirection(nextDir);
+      if (typeof onSort === 'function') {
+        onSort(column, nextDir);
+      }
     } else {
       setSortFieldId(colId);
       setSortDirection('asc');
+      if (typeof onSort === 'function') {
+        onSort(column, 'asc');
+      }
     }
   };
 
@@ -121,6 +138,10 @@ const DataTable = ({
         if (aVal === null || aVal === undefined) aVal = '';
         if (bVal === null || bVal === undefined) bVal = '';
 
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+
         if (typeof aVal === 'string' && typeof bVal === 'string') {
           const comp = aVal.localeCompare(bVal);
           return sortDirection === 'asc' ? comp : -comp;
@@ -136,15 +157,16 @@ const DataTable = ({
   }, [data, activeSortColumn, sortDirection]);
 
   // 5. Paginated Slice with Derived Bounds Clamping
-  const totalEntries = sortedData.length;
+  const totalEntries = paginationServer ? paginationTotalRows : sortedData.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / rowsPerPage));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
   const startIndex = (safePage - 1) * rowsPerPage;
 
   const paginatedRows = useMemo(() => {
     if (!pagination) return sortedData;
+    if (paginationServer) return sortedData;
     return sortedData.slice(startIndex, startIndex + rowsPerPage);
-  }, [sortedData, pagination, startIndex, rowsPerPage]);
+  }, [sortedData, pagination, paginationServer, startIndex, rowsPerPage]);
 
   // 6. Master Checkbox Indeterminate & Checked Handling
   const pageRowKeys = useMemo(() => {

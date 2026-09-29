@@ -8,21 +8,32 @@ import TopStolenData from './TopStolenData';
 import TheftByTimeOfDay from './TheftByTimeOfDay';
 import TheftByDayOfWeek from './TheftByDayOfWeek';
 import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
-import { fetchTodayRecord } from '../../utils/dashboardApi';
+import { fetchAnalyticsDashboard } from '../../utils/dashboardApi';
+
+const formatApiDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const AnalyticsView = () => {
   const [loading, setLoading] = useState(false);
+  const [datePayload, setDatePayload] = useState({ Preset: 'Today' });
+  const [currentStoreId, setCurrentStoreId] = useState(null);
   const [metrics, setMetrics] = useState({
     totalTags: '0',
     untagged: '0',
     theftAlerts: '0',
-    potentialLoss: '₹ 0'
+    potentialLoss: '₹0'
   });
 
-  const loadMetrics = useCallback(async () => {
+  const loadMetrics = useCallback(async (payload) => {
     setLoading(true);
     try {
-      const data = await fetchTodayRecord();
+      const data = await fetchAnalyticsDashboard(payload);
       setMetrics(data);
     } catch (error) {
       console.error('Failed to load analytics dashboard metrics:', error);
@@ -35,7 +46,7 @@ const AnalyticsView = () => {
     let ignore = false;
     (async () => {
       try {
-        const data = await fetchTodayRecord();
+        const data = await fetchAnalyticsDashboard(datePayload);
         if (!ignore && data) {
           setMetrics(data);
         }
@@ -49,10 +60,44 @@ const AnalyticsView = () => {
     };
   }, []);
 
-  const handleStoreChange = () => {
+  const handleDateChange = (label, rangeInfo) => {
+    let payload = { Preset: 'Today' };
+
+    if (label === 'Today') {
+      payload = { Preset: 'Today' };
+    } else if (label === 'Last 7 Days' || label === 'Last7Days') {
+      payload = { Preset: 'Last7Days' };
+    } else if (label === 'Last 30 Days' || label === 'Last30Days') {
+      payload = { Preset: 'Last30Days' };
+    } else if (rangeInfo?.startDate && rangeInfo?.endDate) {
+      payload = {
+        Preset: 'Custom',
+        FromDate: formatApiDate(rangeInfo.startDate),
+        ToDate: formatApiDate(rangeInfo.endDate),
+      };
+    } else {
+      payload = { Preset: label };
+    }
+
+    if (currentStoreId) {
+      payload.StoreId = currentStoreId;
+    }
+
+    setDatePayload(payload);
+    loadMetrics(payload);
+  };
+
+  const handleStoreChange = (storeId) => {
+    setCurrentStoreId(storeId || null);
     setLoading(true);
     setTimeout(async () => {
-      await loadMetrics();
+      const payload = { ...datePayload };
+      if (storeId) {
+        payload.StoreId = storeId;
+      } else {
+        delete payload.StoreId;
+      }
+      await loadMetrics(payload);
       setLoading(false);
     }, 600);
   };
@@ -62,7 +107,7 @@ const AnalyticsView = () => {
       {/* 1. Header with Store & Date Range Filters */}
       <PageHeader title="Analytics">
         <StoreFilter onStoreChange={handleStoreChange} />
-        <DateFilter />
+        <DateFilter onDateChange={handleDateChange} />
       </PageHeader>
 
       {/* 2. Key Metrics Stat Cards */}
@@ -103,7 +148,7 @@ const AnalyticsView = () => {
         <TagStatusDistributionChart className="h-full" metrics={metrics} />
 
         {/* Row 1, Right: Top Stolen Items (Target Articles & Theft Counts) */}
-        <TopStolenData className="h-full" />
+        <TopStolenData className="h-full" highIncidentTargets={metrics?.highIncidentTargets} />
 
         {/* Row 2, Left: Theft by Time of Day (Hourly Incident Bar Chart) */}
         <TheftByTimeOfDay className="h-full" />

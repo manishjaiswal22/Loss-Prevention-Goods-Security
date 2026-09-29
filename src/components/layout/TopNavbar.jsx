@@ -3,12 +3,14 @@ import {
   Menu,
   Bell,
   ChevronDown,
+  ChevronUp,
   LogOut,
   Clock,
   Store,
   TagX,
   AlertTriangle,
 } from 'lucide-react';
+import { fetchDashboardRecord } from '../../utils/dashboardApi';
 
 const NOTIFICATIONS = [
   {
@@ -34,8 +36,30 @@ const NOTIFICATIONS = [
 export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [alerts, setAlerts] = useState(NOTIFICATIONS);
+  const [theftCount, setTheftCount] = useState(NOTIFICATIONS.length);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
   const notificationsRef = useRef(null);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    let ignore = false;
+    fetchDashboardRecord()
+      .then((data) => {
+        if (!ignore && data) {
+          if (data.theftAlerts != null && Number(data.theftAlerts) > 0) {
+            setTheftCount(Number(data.theftAlerts));
+          }
+          if (data.incidents && data.incidents.length > 0) {
+            setAlerts(data.incidents);
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Close notifications or profile dropdown when clicking outside
   useEffect(() => {
@@ -94,7 +118,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
             <Bell className="w-5 h-5 text-slate-700" />
             {/* Notification Badge - Positioned at corner without covering bell */}
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center ring-2 ring-white shadow-xs">
-              {NOTIFICATIONS.length}
+              {theftCount}
             </span>
           </button>
 
@@ -104,27 +128,27 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <span className="font-bold text-sm text-slate-900">Security Alerts</span>
                 <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/60">
-                  {NOTIFICATIONS.length} New
+                  {theftCount} New
                 </span>
               </div>
-              <div className="space-y-2.5 mt-3">
-                {NOTIFICATIONS.map((item) => (
+              <div className={`space-y-2.5 mt-3 ${showAllAlerts ? 'max-h-72 sm:max-h-80 overflow-y-auto custom-scrollbar pr-1' : ''}`}>
+                {(showAllAlerts ? alerts : alerts.slice(0, 3)).map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100/90 hover:border-slate-200 transition-all cursor-pointer"
+                    className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-300 hover:border-slate-400 transition-all cursor-pointer"
                   >
                     {/* Themed Severity Icon */}
                     <div
                       className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0 mt-0.5 shadow-2xs ${
-                        item.type === 'Theft'
-                          ? 'bg-rose-100 text-rose-600'
-                          : 'bg-sky-100 text-[#00a8e7]'
+                        item.type === 'Untagged'
+                          ? 'bg-sky-100 text-[#00a8e7]'
+                          : 'bg-rose-100 text-rose-600'
                       }`}
                     >
-                      {item.type === 'Theft' ? (
-                        <AlertTriangle className="w-4 h-4" />
-                      ) : (
+                      {item.type === 'Untagged' ? (
                         <TagX className="w-4 h-4" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4" />
                       )}
                     </div>
 
@@ -137,21 +161,28 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                         </h4>
                         <span
                           className={`shrink-0 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
-                            item.type === 'Theft'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-sky-50 text-sky-700 border-sky-200'
+                            item.type === 'Untagged'
+                              ? 'bg-sky-50 text-sky-700 border-sky-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
                           }`}
                         >
-                          {item.type}
+                          {item.status || item.type || 'Theft'}
                         </span>
                       </div>
 
                       {/* Row 2: Article Number */}
-                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                        <span className="text-slate-400 font-medium">Article No:</span>
-                        <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.2 rounded text-[10px] border border-slate-200/80">
-                          {item.articleNo}
-                        </span>
+                      <div className="flex items-center justify-between gap-1.5 text-[11px] text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-400 font-medium">Article No:</span>
+                          <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.2 rounded text-[10px] border border-slate-200/80">
+                            {item.articleNo}
+                          </span>
+                        </div>
+                        {item.amount && (
+                          <span className="font-semibold text-slate-900 text-[10.5px]">
+                            {item.amount}
+                          </span>
+                        )}
                       </div>
 
                       {/* Row 3: Store Code & Store Name on Left, Time on Right */}
@@ -159,7 +190,11 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                         <div className="flex items-center gap-1 text-slate-600 truncate min-w-0">
                           <Store className="w-3 h-3 text-[#00a8e7] shrink-0" />
                           <span className="truncate">
-                            <strong className="text-slate-900 font-semibold">{item.storeCode} - {item.storeName}</strong>
+                            <strong className="text-slate-900 font-semibold">
+                              {item.storeCode && item.storeName
+                                ? `${item.storeCode} - ${item.storeName}`
+                                : (item.storeName || item.storeCode || item.date || 'Main Store')}
+                            </strong>
                           </span>
                         </div>
 
@@ -172,6 +207,24 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                   </div>
                 ))}
               </div>
+
+              {/* View More / View Less Option */}
+              {alerts.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllAlerts(!showAllAlerts)}
+                  className="w-full mt-3 py-1.5 px-3 text-xs font-semibold text-[#00a8e7] hover:text-[#0084b6] hover:bg-sky-50 rounded-xl transition-all border border-sky-100 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>
+                    {showAllAlerts ? 'View Less' : `View More (${alerts.length - 3} more)`}
+                  </span>
+                  {showAllAlerts ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
