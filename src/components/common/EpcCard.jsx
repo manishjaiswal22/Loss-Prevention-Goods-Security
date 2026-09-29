@@ -33,7 +33,7 @@ export default function EpcCard({
   if (loading) {
     return (
       <div
-        className={`relative w-full bg-white border border-slate-200/80 rounded-xl px-3.5 py-2.5 overflow-hidden shadow-2xs ${
+        className={`relative w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 overflow-hidden shadow-2xs ${
           isTheft ? 'border-l-2 border-l-rose-400' : 'border-l-2 border-l-sky-400'
         } ${className}`}
         role="status"
@@ -65,10 +65,10 @@ export default function EpcCard({
   // 2. Active Compact EpcCard
   return (
     <div
-      className={`group relative w-full bg-white border border-slate-200/90 rounded-xl px-3.5 py-2.5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer ${
+      className={`group relative w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer ${
         isTheft
-          ? 'border-l-2 border-l-rose-500 hover:border-rose-300'
-          : 'border-l-2 border-l-[#00a8e7] hover:border-sky-300'
+          ? 'border-l-2 border-l-rose-500 hover:border-rose-400'
+          : 'border-l-2 border-l-[#00a8e7] hover:border-sky-400'
       } ${className}`}
     >
       {/* Row 1: Article Description on left, Status chip on right */}

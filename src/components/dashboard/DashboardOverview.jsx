@@ -5,16 +5,18 @@ import StoreFilter from '../common/StoreFilter';
 import StatCard from '../common/StatCard';
 import EpcCard from '../common/EpcCard';
 import { Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
-import { MOCK_UNTAGGED_ITEMS, MOCK_THEFT_ALERTS } from '../../data/mockEpcData';
+import { MOCK_UNTAGGED_ITEMS } from '../../data/mockEpcData';
 import { fetchDashboardRecord } from '../../utils/dashboardApi';
 
 const DashboardOverview = () => {
   const [loading, setLoading] = useState(false);
   const [metrics, setMetrics] = useState({
-    totalTags: '100',
-    untagged: '30',
-    theftAlerts: '12',
-    potentialLoss: '₹4,250'
+    date: null,
+    totalTags: '0',
+    untagged: '0',
+    theftAlerts: '0',
+    potentialLoss: '₹0',
+    incidents: []
   });
 
   useEffect(() => {
@@ -54,7 +56,7 @@ const DashboardOverview = () => {
     <div className="space-y-4">
       {/* Page Header: Title on the left, CurrentDateOption and StoreFilter on the right */}
       <PageHeader title="Dashboard">
-        <CurrentDateOption />
+        <CurrentDateOption date={metrics.date} />
         <StoreFilter onStoreChange={handleStoreChange} />
       </PageHeader>
 
@@ -91,9 +93,9 @@ const DashboardOverview = () => {
       </div>
 
       {/* 2. Bottom Screen: Distinctly Themed Untagged vs Theft Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-1 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-5 pt-1 items-stretch">
 
-        <div className="bg-white border-2 border-sky-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
+        {/* <div className="bg-white border-2 border-sky-200/70 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
           <div className="bg-gradient-to-r from-sky-50 via-sky-50/60 to-white px-4 py-3 border-b border-sky-100 flex items-center justify-between gap-3 h-[60px] shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-xl bg-[#00a8e7] text-white flex items-center justify-center shadow-xs shadow-sky-500/25 shrink-0">
@@ -134,7 +136,7 @@ const DashboardOverview = () => {
               />
             ))}
           </div>
-        </div>
+        </div> */}
 
 
         <div className="bg-white border-2 border-rose-200/90 rounded-2xl overflow-hidden shadow-xs flex flex-col h-[420px] sm:h-[460px] lg:h-[calc(100vh-345px)] lg:min-h-[400px] lg:max-h-[850px]">
@@ -158,7 +160,7 @@ const DashboardOverview = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
               </span>
-              12 Alarms
+              {metrics.theftAlerts || (metrics.incidents ? metrics.incidents.length : 0)} Alarms
             </span>
           </div>
 
@@ -167,20 +169,27 @@ const DashboardOverview = () => {
             <span className="font-semibold text-rose-600 shrink-0">Action: Security Check</span>
           </div>
 
-          <div className="p-3 sm:p-3.5 flex flex-col gap-2.5 overflow-y-auto custom-scrollbar bg-slate-50/30 flex-1 min-h-0">
-            {MOCK_THEFT_ALERTS.map((item) => (
-              <EpcCard
-                key={item.id}
-                articleDescription={item.articleDescription}
-                articleNo={item.articleNo}
-                epc={item.epc}
-                amount={item.amount}
-                date={item.date}
-                time={item.time}
-                status={item.status}
-                variant="theft"
-              />
-            ))}
+          <div className="p-3 sm:p-3.5 grid grid-cols-1 md:grid-cols-2 gap-2.5 content-start overflow-y-auto custom-scrollbar bg-slate-50/30 flex-1 min-h-0">
+            {metrics.incidents && metrics.incidents.length > 0 ? (
+              metrics.incidents.map((item) => (
+                <EpcCard
+                  key={item.id}
+                  articleDescription={item.articleDescription}
+                  articleNo={item.articleNo}
+                  epc={item.epc}
+                  amount={item.amount}
+                  date={item.date}
+                  time={item.time}
+                  status={item.status}
+                  variant="theft"
+                  loading={loading}
+                />
+              ))
+            ) : (
+              <div className="col-span-full py-8 text-center text-xs text-slate-400">
+                No theft alerts found
+              </div>
+            )}
           </div>
         </div>
 

@@ -61,11 +61,25 @@ export async function fetchDashboardRecord(payload = {}) {
       ? summary.PotentialLossDisplay
       : (summary.PotentialLoss ?? '0');
 
+    const incidents = (data.SecurityIncidents?.Incidents || data.Incidents || []).map((inc, index) => ({
+      id: inc.EPC || inc.Id || `inc-${index}`,
+      articleDescription: inc.ArticleDescription || inc.ItemName || inc.ArticleDesc || 'Untitled Article',
+      articleNo: inc.ArticleNo || inc.Material || inc.EAN_UPC || 'N/A',
+      epc: inc.EPC || 'N/A',
+      amount: inc.AmountDisplay ?? inc.Amount,
+      date: inc.IncidentDate || inc.Date || '',
+      time: inc.IncidentTime || inc.Time || '',
+      status: inc.AlertStatus || 'Theft Alert',
+      variant: 'theft',
+    }));
+
     return {
+      date: data.Date || null,
       totalTags: summary.TotalTags != null ? String(summary.TotalTags) : '0',
       untagged: summary.Untagged != null ? String(summary.Untagged) : (summary.Checkout != null ? String(summary.Checkout) : '0'),
       theftAlerts: summary.TheftAlerts != null ? String(summary.TheftAlerts) : (summary.Loss != null ? String(summary.Loss) : '0'),
       potentialLoss: formatCurrency(rawLoss),
+      incidents,
     };
   } catch (error) {
     console.error('Error fetching today dashboard data:', error);

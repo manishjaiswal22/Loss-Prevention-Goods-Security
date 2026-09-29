@@ -20,6 +20,10 @@ export const DATE_PRESETS = [
 
 export const formatDate = (date) => {
   if (!date) return '';
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+    const [y, m, d] = date.trim().split('-');
+    return `${d}-${m}-${y}`;
+  }
   const d = new Date(date);
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
