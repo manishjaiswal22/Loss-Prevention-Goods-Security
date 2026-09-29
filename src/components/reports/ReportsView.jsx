@@ -1,14 +1,16 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import PageHeader from '../common/PageHeader';
 import StoreFilter from '../common/StoreFilter';
 import DateFilter from '../common/DateFilter';
 import StatCard from '../common/StatCard';
 import DataTable from '../common/DataTable';
 import { fetchIncidentReport } from '../../utils/dashboardApi';
+import { MOCK_REPORTS_DATA } from '../../data/mockReportsData';
 import * as XLSX from 'xlsx';
 import {
   Search,
   ChevronDown,
+  Check,
   Tag,
   TagX,
   AlertTriangle,
@@ -27,6 +29,14 @@ const formatApiDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const ROW_OPTIONS = [
+  { label: '10', value: 10 },
+  { label: '20', value: 20 },
+  { label: '50', value: 50 },
+  { label: '100', value: 100 },
+  { label: 'All', value: 'All' },
+];
+
 const ReportsView = () => {
   const [selectedStore, setSelectedStore] = useState('all');
   const [dateRange, setDateRange] = useState(() => {
@@ -41,55 +51,84 @@ const ReportsView = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEventType, setSelectedEventType] = useState('All'); // 'All' | 'Theft' | 'Untagged'
+  const [reportData, setReportData] = useState(() => {
+    const totalAll = MOCK_REPORTS_DATA.length;
+    const totalTheft = MOCK_REPORTS_DATA.filter((r) => r.eventType === 'Theft').length;
+    const totalUntagged = MOCK_REPORTS_DATA.filter((r) => r.eventType === 'Untagged').length;
+    return {
+      records: MOCK_REPORTS_DATA,
+      totalRecords: totalAll,
+      totalAll,
+      totalTheft,
+      totalUntagged,
+      totalTags: totalAll,
+      theftAlerts: totalTheft,
+      untagged: totalUntagged,
+      potentialLoss: '₹4,23,010',
+      pageSize: 10,
+      pageNumber: 1,
+      totalPages: Math.ceil(totalAll / 10),
+    };
+  });
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsDropdownOpen, setRowsDropdownOpen] = useState(false);
+  const rowsDropdownRef = useRef(null);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const [reportData, setReportData] = useState({
-    records: [],
-    totalRecords: 0,
-    totalAll: 0,
-    totalTheft: 0,
-    totalUntagged: 0,
-    totalPages: 1,
-  });
 
-  const loadReport = useCallback(async (params) => {
-    setLoading(true);
-    try {
-      const res = await fetchIncidentReport({
-        PageSize: params.pageSize,
-        PageNumber: params.pageNumber,
-        EventType: params.eventType,
-        Search: params.search,
-        StoreCode: params.storeCode !== 'all' ? params.storeCode : undefined,
-        FromDate: params.fromDate || undefined,
-        ToDate: params.toDate || undefined,
-      });
-      setReportData(res);
-    } catch (error) {
-      console.error('Failed to load incident report:', error);
-    } finally {
-      setLoading(false);
-    }
+  // Close rows dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (rowsDropdownRef.current && !rowsDropdownRef.current.contains(e.target)) {
+        setRowsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadReport({
-        pageSize: rowsPerPage,
-        pageNumber: currentPage,
-        eventType: selectedEventType,
-        search: searchQuery,
-        storeCode: selectedStore,
-        fromDate: dateRange.fromDate,
-        toDate: dateRange.toDate,
-      });
-    }, 250);
+  const loadReport = useCallback(
+    async (overrides = {}) => {
+      setLoading(true);
+      const store = overrides.store !== undefined ? overrides.store : selectedStore;
+      const fromDate = overrides.fromDate !== undefined ? overrides.fromDate : dateRange.fromDate;
+      const toDate = overrides.toDate !== undefined ? overrides.toDate : dateRange.toDate;
+      const page = overrides.page !== undefined ? overrides.page : currentPage;
+      const pageSize = overrides.pageSize !== undefined ? overrides.pageSize : rowsPerPage;
+      const eventType = overrides.eventType !== undefined ? overrides.eventType : selectedEventType;
+      const search = overrides.search !== undefined ? overrides.search : searchQuery;
+      const effectivePageSize = pageSize === 'All' ? 10000 : Number(pageSize);
 
-    return () => clearTimeout(timer);
-  }, [rowsPerPage, currentPage, selectedEventType, searchQuery, selectedStore, dateRange.fromDate, dateRange.toDate, loadReport]);
+      try {
+        const res = await fetchIncidentReport({
+          StoreCode: store !== 'all' ? store : undefined,
+          FromDate: fromDate || undefined,
+          ToDate: toDate || undefined,
+          PageNumber: page,
+          PageSize: effectivePageSize,
+          EventType: eventType !== 'All' ? eventType : undefined,
+          Search: search.trim() || undefined,
+        });
+        if (res && res.records) {
+          setReportData(res);
+          if (res.pageNumber) {
+            setCurrentPage(res.pageNumber);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load incident report:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedStore, dateRange.fromDate, dateRange.toDate, currentPage, rowsPerPage, selectedEventType, searchQuery]
+  );
+
+  useEffect(() => {
+    loadReport();
+  }, [selectedStore, dateRange.fromDate, dateRange.toDate]);
 
   const handleDateChange = (label, rangeInfo) => {
     let from = '';
@@ -125,21 +164,31 @@ const ReportsView = () => {
     }
     setDateRange({ label, fromDate: from, toDate: to });
     setCurrentPage(1);
+    loadReport({ fromDate: from, toDate: to, page: 1 });
   };
 
   const handleStoreChange = (storeId) => {
     setSelectedStore(storeId);
     setCurrentPage(1);
+    loadReport({ store: storeId, page: 1 });
   };
 
   const handleEventTypeChange = (type) => {
     setSelectedEventType(type);
     setCurrentPage(1);
+    loadReport({ eventType: type, page: 1 });
   };
 
-  const handleRowsPerPageChange = (newRpp) => {
-    setRowsPerPage(newRpp);
+  const handleRowsPerPageChange = (newVal) => {
+    setRowsPerPage(newVal);
     setCurrentPage(1);
+    setRowsDropdownOpen(false);
+    loadReport({ pageSize: newVal, page: 1 });
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    loadReport({ page: newPage });
   };
 
   const handleSearchChange = (e) => {
@@ -147,8 +196,39 @@ const ReportsView = () => {
     setCurrentPage(1);
   };
 
-  // 1. Filter Logic
-  const filteredData = reportData.records;
+  // 1. Dynamic Filter Logic based on API data (Search and Event Type)
+  const filteredData = useMemo(() => {
+    let result = reportData.records || [];
+
+    // Filter by Event Type Tab ('All', 'Theft', 'Untagged')
+    if (selectedEventType === 'Theft') {
+      result = result.filter((item) => item.eventType === 'Theft');
+    } else if (selectedEventType === 'Untagged') {
+      result = result.filter((item) => item.eventType === 'Untagged');
+    }
+
+    // Filter by Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((item) => {
+        return (
+          item.epc?.toLowerCase().includes(q) ||
+          item.articleNo?.toLowerCase().includes(q) ||
+          item.articleDescription?.toLowerCase().includes(q) ||
+          item.storeCode?.toLowerCase().includes(q) ||
+          item.storeName?.toLowerCase().includes(q) ||
+          item.eventType?.toLowerCase().includes(q) ||
+          String(item.amount ?? '').includes(q) ||
+          String(item.srNo ?? '').includes(q)
+        );
+      });
+    }
+
+    return result;
+  }, [reportData.records, selectedEventType, searchQuery]);
+
+  // Standard Rows Per Page options: 10, 20, 50, 100, All
+  const rowsPerPageOptions = [10, 20, 50, 100, 'All'];
 
   // 2. React DataTable Columns Definition
   const columns = useMemo(
@@ -166,7 +246,17 @@ const ReportsView = () => {
         id: 'date',
         name: 'Date',
         selector: (row) => row.date,
-        sortFunction: (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+        sortFunction: (a, b) => {
+          const parseDate = (d) => {
+            if (!d) return 0;
+            const parts = d.split('-');
+            if (parts.length === 3 && parts[0].length <= 2) {
+              return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime() || 0;
+            }
+            return new Date(d).getTime() || 0;
+          };
+          return parseDate(a.date) - parseDate(b.date);
+        },
         sortable: true,
         width: '110px',
         cell: (row) => <span className="font-semibold text-slate-800 text-[11px]">{row.date}</span>,
@@ -290,51 +380,16 @@ const ReportsView = () => {
     setIsExporting(true);
     setExportProgress(0);
 
-    let allRecords = [];
-    const totalCount = reportData.totalRecords || 0;
+    const allRecords = filteredData;
 
-    try {
-      if (totalCount <= reportData.records.length && reportData.records.length > 0) {
-        allRecords = reportData.records;
-        setExportProgress(100);
-      } else {
-        const batchSize = 2000;
-        const totalPages = Math.ceil(totalCount / batchSize) || 1;
-        let fetchedCount = 0;
-
-        for (let page = 1; page <= totalPages; page++) {
-          const res = await fetchIncidentReport({
-            PageSize: batchSize,
-            PageNumber: page,
-            EventType: selectedEventType,
-            Search: searchQuery,
-            StoreCode: selectedStore !== 'all' ? selectedStore : undefined,
-            FromDate: dateRange.fromDate || undefined,
-            ToDate: dateRange.toDate || undefined,
-          });
-
-          const batch = res.records || [];
-          allRecords.push(...batch);
-          fetchedCount += batch.length;
-
-          const progress = Math.min(100, Math.round((page / totalPages) * 100));
-          setExportProgress(progress);
-
-          if (batch.length < batchSize || fetchedCount >= totalCount) {
-            break;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch records for export:', error);
-    }
-
-    if (allRecords.length === 0) {
-      allRecords = reportData.records;
+    // Smooth export progress animation on the button
+    for (let p = 25; p <= 90; p += 25) {
+      setExportProgress(p);
+      await new Promise((resolve) => setTimeout(resolve, 35));
     }
 
     setExportProgress(100);
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     const exportData = allRecords.map((item, idx) => ({
       'Sr No': idx + 1,
@@ -408,31 +463,31 @@ const ReportsView = () => {
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
         <StatCard
           title="Total Tags"
-          count={reportData.totalAll.toLocaleString('en-IN')}
+          count={(reportData.totalTags ?? reportData.totalAll ?? 0).toLocaleString('en-IN')}
           icon={Tag}
           variant="green"
-          loading={loading}
+          loading={loading && !reportData.records?.length}
         />
         <StatCard
           title="Untagged"
-          count={reportData.totalUntagged.toLocaleString('en-IN')}
+          count={(reportData.untagged ?? reportData.totalUntagged ?? 0).toLocaleString('en-IN')}
           icon={TagX}
           variant="blue"
-          loading={loading}
+          loading={loading && !reportData.records?.length}
         />
         <StatCard
           title="Theft Alerts"
-          count={reportData.totalTheft.toLocaleString('en-IN')}
+          count={(reportData.theftAlerts ?? reportData.totalTheft ?? 0).toLocaleString('en-IN')}
           icon={AlertTriangle}
           variant="gray"
-          loading={loading}
+          loading={loading && !reportData.records?.length}
         />
         <StatCard
           title="Potential Loss"
-          count={`₹${reportData.records.reduce((sum, r) => sum + (r.amount || 0), 0).toLocaleString('en-IN')}`}
+          count={reportData.potentialLoss || '₹0'}
           icon={TrendingDown}
           variant="rose"
-          loading={loading}
+          loading={loading && !reportData.records?.length}
         />
       </div>
 
@@ -457,7 +512,7 @@ const ReportsView = () => {
               </p>
               <p>
                 <span className="font-semibold text-slate-800">Total Records:</span>{' '}
-                {filteredData.length} incidents
+                {reportData.totalRecords || filteredData.length} incidents
               </p>
             </div>
           </div>
@@ -470,13 +525,13 @@ const ReportsView = () => {
             data={filteredData}
             keyField="id"
             pagination
-            paginationServer
-            paginationTotalRows={reportData.totalRecords}
+            paginationServer={true}
+            paginationTotalRows={reportData.totalRecords || filteredData.length}
             paginationDefaultPage={currentPage}
-            paginationPerPage={rowsPerPage}
-            paginationRowsPerPageOptions={[10, 20, 50]}
+            paginationPerPage={rowsPerPage === 'All' ? 100000 : Number(rowsPerPage)}
+            paginationRowsPerPageOptions={rowsPerPageOptions}
             onChangeRowsPerPage={handleRowsPerPageChange}
-            onChangePage={setCurrentPage}
+            onChangePage={handlePageChange}
             selectableRows={false}
             highlightOnHover
             pointerOnHover={false}
@@ -510,20 +565,49 @@ const ReportsView = () => {
                     )}
                   </div>
 
-                  {/* Rows Per Page Dropdown Pill (matching user screenshot) */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs sm:text-sm text-slate-500 font-normal">Rows:</span>
+                  {/* Rows Per Page Dropdown (Styled like StoreFilter) */}
+                  <div className="flex items-center gap-2 shrink-0" ref={rowsDropdownRef}>
+                    <span className="text-xs sm:text-sm text-slate-500 font-medium">Rows:</span>
                     <div className="relative inline-block">
-                      <select
-                        value={rowsPerPage}
-                        onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
-                        className="appearance-none bg-white border border-slate-300 hover:border-slate-300 rounded-xl pl-3 pr-7 py-1 text-xs sm:text-sm font-bold text-slate-800 outline-none focus:border-[#00a8e7] focus:ring-1 focus:ring-[#00a8e7]/20 cursor-pointer shadow-2xs transition-all"
+                      <button
+                        type="button"
+                        onClick={() => setRowsDropdownOpen((prev) => !prev)}
+                        className="h-8.5 px-3 bg-white border border-slate-200/90 hover:border-slate-300 rounded-lg flex items-center justify-between gap-2.5 text-xs font-bold text-slate-800 shadow-2xs transition-all cursor-pointer min-w-[76px]"
+                        aria-haspopup="listbox"
+                        aria-expanded={rowsDropdownOpen}
                       >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                      </select>
-                      <ChevronDown className="w-3.5 h-3.5 text-slate-700 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none stroke-[2.2]" />
+                        <span className="truncate">{rowsPerPage}</span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                            rowsDropdownOpen ? 'rotate-180 text-[#00a8e7]' : ''
+                          }`}
+                        />
+                      </button>
+
+                      {rowsDropdownOpen && (
+                        <div className="absolute left-0 sm:left-auto sm:right-0 mt-1.5 w-28 bg-white border border-slate-200 rounded-xl shadow-xl z-50 animate-in fade-in slide-in-from-top-1 duration-150 overflow-hidden py-1">
+                          {ROW_OPTIONS.map((opt) => {
+                            const isSelected = rowsPerPage === opt.value;
+                            return (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => handleRowsPerPageChange(opt.value)}
+                                className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'bg-[#00a8e7]/10 text-[#00a8e7] font-bold'
+                                    : 'text-slate-700 hover:bg-slate-50 font-medium'
+                                }`}
+                              >
+                                <span>{opt.label}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-[#00a8e7] shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

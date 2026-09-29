@@ -13,10 +13,49 @@ import { THEFT_BY_DAY_OF_WEEK_DATA, THEFT_BY_DAY_OF_WEEK_SUMMARY } from '../../d
 export default function TheftByDayOfWeek({
   data = THEFT_BY_DAY_OF_WEEK_DATA,
   summary = THEFT_BY_DAY_OF_WEEK_SUMMARY,
+  weeklyThefts = null,
   className = '',
 }) {
   const [activeDay, setActiveDay] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const rawDays = weeklyThefts?.Days || (Array.isArray(data) ? data : []);
+  const weeklyTotal = weeklyThefts?.WeeklyTotal ?? weeklyThefts?.TotalThefts ?? summary?.totalIncidents ?? 0;
+  const highestDayCount = Math.max(...rawDays.map((item) => item.Thefts ?? item.count ?? 0), 0);
+  const weekendTheftsDisplay = weeklyThefts?.WeekendTheftsDisplay || (summary ? `${summary.weekendTotal} (${((summary.weekendTotal / (summary.totalIncidents || 1)) * 100).toFixed(1)}%)` : '0 (0%)');
+  const midweekSurgeDisplay = weeklyThefts?.MidweekSurgeDisplay || (summary?.midweekRushPercentage ? `Wed-Fri (${summary.midweekRushPercentage}%)` : 'Wed–Fri (0%)');
+  const midweekSurgeText = String(midweekSurgeDisplay).replace(/^Midweek Surge:\s*/i, '');
+
+  const chartData = rawDays.map((item, idx) => {
+    const day = item.DayShort || item.day || '';
+    const fullDay = item.Day || item.fullDay || day;
+    const count = item.Thefts ?? item.count ?? 0;
+    const dayType = item.DayType || (day === 'Sat' || day === 'Sun' ? 'Weekend' : 'Weekday');
+    const percentage = item.PercentageOfWeek ?? item.Percentage ?? (weeklyTotal > 0 ? ((count / weeklyTotal) * 100) : 0);
+    const isPeak = Boolean(
+      (highestDayCount > 0 && count === highestDayCount) ||
+      item.IsPeakDay ||
+      fullDay === (weeklyThefts?.PeakDay || summary?.peakDay) ||
+      day === (weeklyThefts?.PeakDay || summary?.peakDay)
+    );
+
+    return {
+      day,
+      fullDay,
+      count,
+      dayType,
+      percentage: Number(percentage).toFixed(1),
+      isPeak,
+      order: item.DayOrder ?? idx + 1,
+    };
+  });
+
+  const peakItems = chartData.filter((d) => d.isPeak);
+  const peakDay = peakItems.length > 1
+    ? peakItems.map((p) => p.fullDay).join(' & ')
+    : (weeklyThefts?.PeakDay || summary?.peakDay || (peakItems[0]?.fullDay ?? ''));
+  const peakCount = peakItems[0]?.count ?? (summary?.peakCount ?? 0);
+  const peakPercentage = peakItems[0]?.percentage ?? (summary?.peakPercentage ?? 0);
 
   // SVG Chart Geometry Constants
   const viewBoxWidth = 660;
@@ -26,16 +65,18 @@ export default function TheftByDayOfWeek({
   const chartTop = 24;
   const chartBottom = 250;
   const chartHeight = chartBottom - chartTop; // 226px
-  const maxVal = 40; // 0 to 40 scale
 
-  // Y-axis grid levels (0, 10, 20, 30, 40)
-  const yTicks = [0, 10, 20, 30, 40];
-  const getY = (val) => chartBottom - (val / maxVal) * chartHeight;
+  const maxVal = highestDayCount <= 10 ? 10 : highestDayCount <= 40 ? 40 : Math.ceil(highestDayCount / 20) * 20;
+
+  // Y-axis grid levels (dynamic ticks)
+  const yTicks = [0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal];
+  const getY = (val) => chartBottom - (maxVal > 0 ? (val / maxVal) * chartHeight : 0);
 
   // X-axis bar positions
   const plotWidth = chartRight - chartLeft;
-  const slotWidth = plotWidth / data.length;
-  const barWidth = 46;
+  const slotCount = chartData.length || 7;
+  const slotWidth = plotWidth / slotCount;
+  const barWidth = Math.min(46, slotWidth * 0.55);
 
   return (
     <div
@@ -136,15 +177,14 @@ export default function TheftByDayOfWeek({
               stroke="#cbd5e1"
               strokeWidth="1.5"
             />
-
             {/* Bars and Values */}
-            {data.map((item, idx) => {
-              const barHeight = (item.count / maxVal) * chartHeight;
+            {chartData.map((item, idx) => {
+              const barHeight = maxVal > 0 ? (item.count / maxVal) * chartHeight : 0;
               const xCenter = chartLeft + (idx + 0.5) * slotWidth;
               const barX = xCenter - barWidth / 2;
               const barY = chartBottom - barHeight;
               const isHovered = activeDay === item.day;
-              const isPeak = item.count === summary.peakCount;
+              const isPeak = item.isPeak;
               const radius = 5;
 
               // Rounded-top only SVG path
@@ -213,15 +253,18 @@ export default function TheftByDayOfWeek({
       </div>
 
       {/* 3. Bottom Context Sub-bar: Peak Day & Weekend Ratio */}
-      <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-sky-50/40 border-t border-sky-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer">
+      <div
+        onClick={() => setShowDetailsModal(true)}
+        className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-sky-50/40 border-t border-sky-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer hover:bg-sky-50/70 transition-colors"
+      >
         <span className="truncate mr-2">
           Peak Day:{' '}
-          <strong className="text-[#00a8e7] font-bold">{summary.peakDay}</strong> ({summary.peakCount} Thefts ·{' '}
-          {summary.peakPercentage}%)
+          <strong className="text-[#00a8e7] font-bold">{peakDay}</strong> ({peakCount} Thefts ·{' '}
+          {peakPercentage}%)
         </span>
         <span className="font-semibold text-slate-500 shrink-0 flex items-center gap-1">
           <TrendingUp className="w-3 h-3 xl:w-3.5 xl:h-3.5 text-[#00a8e7]" />
-          Midweek Surge: Wed-Fri ({summary.midweekRushPercentage}%)
+          Midweek Surge: {midweekSurgeText}
         </span>
       </div>
 
@@ -259,15 +302,15 @@ export default function TheftByDayOfWeek({
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Weekly Total</span>
-                  <span className="text-base font-black text-slate-900">{summary.totalIncidents}</span>
+                  <span className="text-base font-black text-slate-900">{weeklyTotal}</span>
                 </div>
                 <div className="bg-sky-50 border border-sky-200 rounded-xl p-2.5">
                   <span className="text-[10px] uppercase font-bold text-[#00a8e7] block">Peak Day</span>
-                  <span className="text-sm font-black text-sky-800">{summary.peakDay}</span>
+                  <span className="text-sm font-black text-sky-800">{peakDay}</span>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5">
                   <span className="text-[10px] uppercase font-bold text-emerald-600 block">Weekend Thefts</span>
-                  <span className="text-sm font-black text-emerald-800">{summary.weekendTotal} ({((summary.weekendTotal / summary.totalIncidents) * 100).toFixed(1)}%)</span>
+                  <span className="text-sm font-black text-emerald-800">{weekendTheftsDisplay}</span>
                 </div>
               </div>
 
@@ -280,24 +323,25 @@ export default function TheftByDayOfWeek({
                   <span className="text-right">% of Week</span>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {data.map((item) => {
-                    const pct = ((item.count / summary.totalIncidents) * 100).toFixed(1);
-                    const isPeak = item.count === summary.peakCount;
-                    const isWeekend = item.day === 'Sat' || item.day === 'Sun';
-
-                    return (
-                      <div
-                        key={item.day}
-                        className={`px-3 py-2 grid grid-cols-4 items-center ${isPeak ? 'bg-sky-50/60 font-semibold text-sky-950' : 'text-slate-700'
-                          }`}
-                      >
-                        <span className="font-bold">{item.fullDay}</span>
-                        <span className="text-slate-500">{isWeekend ? 'Weekend' : 'Weekday'}</span>
-                        <span className="text-center font-bold">{item.count}</span>
-                        <span className="text-right text-slate-600">{pct}%</span>
-                      </div>
-                    );
-                  })}
+                  {chartData.map((item) => (
+                    <div
+                      key={item.day}
+                      className={`px-3 py-2 grid grid-cols-4 items-center ${item.isPeak ? 'bg-sky-50/60 font-semibold text-sky-950' : 'text-slate-700'
+                        }`}
+                    >
+                      <span className="font-bold flex items-center gap-1.5">
+                        {item.fullDay}
+                        {item.isPeak && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-sky-100 text-sky-700 font-extrabold">
+                            Peak
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-slate-500">{item.dayType}</span>
+                      <span className={`text-center font-bold ${item.isPeak ? 'text-sky-600' : 'text-slate-800'}`}>{item.count}</span>
+                      <span className={`text-right ${item.isPeak ? 'text-sky-600 font-bold' : 'text-slate-600'}`}>{item.percentage}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 

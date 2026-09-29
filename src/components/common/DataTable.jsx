@@ -83,7 +83,8 @@ const DataTable = ({
   const [prevPropRpp, setPrevPropRpp] = useState(paginationPerPage);
   if (paginationPerPage !== prevPropRpp) {
     setPrevPropRpp(paginationPerPage);
-    setRowsPerPage(paginationPerPage);
+    const parsedRpp = paginationPerPage === 'All' ? 100000 : Number(paginationPerPage);
+    setRowsPerPage(parsedRpp);
     setCurrentPage(1);
   }
 
@@ -157,16 +158,20 @@ const DataTable = ({
   }, [data, activeSortColumn, sortDirection]);
 
   // 5. Paginated Slice with Derived Bounds Clamping
-  const totalEntries = paginationServer ? paginationTotalRows : sortedData.length;
+  const totalEntries = paginationServer ? (paginationTotalRows || sortedData.length) : sortedData.length;
   const totalPages = Math.max(1, Math.ceil(totalEntries / rowsPerPage));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
   const startIndex = (safePage - 1) * rowsPerPage;
 
   const paginatedRows = useMemo(() => {
     if (!pagination) return sortedData;
-    if (paginationServer) return sortedData;
+    // If the server already returned only the page slice (<= rowsPerPage and fewer than totalEntries)
+    if (paginationServer && sortedData.length <= rowsPerPage && sortedData.length < totalEntries) {
+      return sortedData;
+    }
+    // Otherwise slice the current page locally
     return sortedData.slice(startIndex, startIndex + rowsPerPage);
-  }, [sortedData, pagination, paginationServer, startIndex, rowsPerPage]);
+  }, [sortedData, pagination, paginationServer, startIndex, rowsPerPage, totalEntries]);
 
   // 6. Master Checkbox Indeterminate & Checked Handling
   const pageRowKeys = useMemo(() => {
@@ -240,10 +245,10 @@ const DataTable = ({
   };
 
   const handleRowsPerPageChange = (val) => {
-    const newRpp = Number(val);
+    const newRpp = val === 'All' ? 100000 : Number(val);
     setRowsPerPage(newRpp);
     setCurrentPage(1);
-    if (onChangeRowsPerPage) onChangeRowsPerPage(newRpp, 1);
+    if (onChangeRowsPerPage) onChangeRowsPerPage(val === 'All' ? 'All' : newRpp, 1);
   };
 
   return (
@@ -481,7 +486,7 @@ const DataTable = ({
               <span className="text-slate-400 font-medium">Rows per page:</span>
               <div className="relative inline-block">
                 <select
-                  value={rowsPerPage}
+                  value={rowsPerPage >= 10000 ? 'All' : rowsPerPage}
                   onChange={(e) => handleRowsPerPageChange(e.target.value)}
                   className="appearance-none bg-white border border-slate-200 rounded-lg pl-2.5 pr-6 py-1 text-xs font-bold text-slate-700 outline-none focus:border-[#00a8e7] cursor-pointer shadow-2xs transition-colors hover:border-slate-300"
                 >

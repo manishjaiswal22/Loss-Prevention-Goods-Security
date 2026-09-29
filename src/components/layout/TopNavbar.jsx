@@ -12,53 +12,33 @@ import {
 } from 'lucide-react';
 import { fetchDashboardRecord } from '../../utils/dashboardApi';
 
-const NOTIFICATIONS = [
-  {
-    id: 1,
-    type: 'Theft',
-    articleDescription: 'Men Slim Fit Denim Jeans',
-    articleNo: 'ART-10492',
-    storeCode: 'HD55',
-    storeName: 'Dwarka',
-    time: '14:22',
-  },
-  {
-    id: 2,
-    type: 'Untagged',
-    articleDescription: 'Wireless Noise Cancelling Headphones',
-    articleNo: 'ART-20491',
-    storeCode: 'HD44',
-    storeName: 'Uttam - Nagar 2',
-    time: '14:08',
-  },
-];
-
 export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [alerts, setAlerts] = useState(NOTIFICATIONS);
-  const [theftCount, setTheftCount] = useState(NOTIFICATIONS.length);
+  const [alerts, setAlerts] = useState([]);
+  const [theftCount, setTheftCount] = useState(0);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const notificationsRef = useRef(null);
   const profileRef = useRef(null);
 
-  useEffect(() => {
-    let ignore = false;
+  const loadTheftAlerts = () => {
     fetchDashboardRecord()
       .then((data) => {
-        if (!ignore && data) {
-          if (data.theftAlerts != null && Number(data.theftAlerts) > 0) {
-            setTheftCount(Number(data.theftAlerts));
-          }
-          if (data.incidents && data.incidents.length > 0) {
+        if (data) {
+          const count = Number(data.theftAlerts) || (data.incidents ? data.incidents.length : 0);
+          setTheftCount(count);
+          if (data.incidents && Array.isArray(data.incidents)) {
             setAlerts(data.incidents);
           }
         }
       })
-      .catch(() => {});
-    return () => {
-      ignore = true;
-    };
+      .catch((err) => {
+        console.error('Failed to load theft alerts in navbar:', err);
+      });
+  };
+
+  useEffect(() => {
+    loadTheftAlerts();
   }, []);
 
   // Close notifications or profile dropdown when clicking outside
@@ -111,7 +91,13 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         {/* Notification Bell */}
         <div ref={notificationsRef} className="relative">
           <button
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
+            onClick={() => {
+              const nextState = !notificationsOpen;
+              setNotificationsOpen(nextState);
+              if (nextState) {
+                loadTheftAlerts();
+              }
+            }}
             className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-colors relative cursor-pointer shadow-2xs"
             title="Theft & Security Alerts"
           >
@@ -131,82 +117,88 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                   {theftCount} New
                 </span>
               </div>
-              <div className={`space-y-2.5 mt-3 ${showAllAlerts ? 'max-h-72 sm:max-h-80 overflow-y-auto custom-scrollbar pr-1' : ''}`}>
-                {(showAllAlerts ? alerts : alerts.slice(0, 3)).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-300 hover:border-slate-400 transition-all cursor-pointer"
-                  >
-                    {/* Themed Severity Icon */}
+              {alerts.length === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-400 font-medium">
+                  No security alerts at this time
+                </div>
+              ) : (
+                <div className={`space-y-2.5 mt-3 ${showAllAlerts ? 'max-h-72 sm:max-h-80 overflow-y-auto custom-scrollbar pr-1' : ''}`}>
+                  {(showAllAlerts ? alerts : alerts.slice(0, 3)).map((item) => (
                     <div
-                      className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0 mt-0.5 shadow-2xs ${
-                        item.type === 'Untagged'
-                          ? 'bg-sky-100 text-[#00a8e7]'
-                          : 'bg-rose-100 text-rose-600'
-                      }`}
+                      key={item.id}
+                      className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-300 hover:border-slate-400 transition-all cursor-pointer"
                     >
-                      {item.type === 'Untagged' ? (
-                        <TagX className="w-4 h-4" />
-                      ) : (
-                        <AlertTriangle className="w-4 h-4" />
-                      )}
-                    </div>
-
-                    {/* Notification Details */}
-                    <div className="min-w-0 flex-1 space-y-1">
-                      {/* Row 1: Article Description as Main on Left, Event Type Badge on Right */}
-                      <div className="flex items-center justify-between gap-1.5">
-                        <h4 className="font-bold text-slate-900 text-xs sm:text-[12.5px] truncate leading-tight">
-                          {item.articleDescription}
-                        </h4>
-                        <span
-                          className={`shrink-0 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
-                            item.type === 'Untagged'
-                              ? 'bg-sky-50 text-sky-700 border-sky-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}
-                        >
-                          {item.status || item.type || 'Theft'}
-                        </span>
-                      </div>
-
-                      {/* Row 2: Article Number */}
-                      <div className="flex items-center justify-between gap-1.5 text-[11px] text-slate-500">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-slate-400 font-medium">Article No:</span>
-                          <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.2 rounded text-[10px] border border-slate-200/80">
-                            {item.articleNo}
-                          </span>
-                        </div>
-                        {item.amount && (
-                          <span className="font-semibold text-slate-900 text-[10.5px]">
-                            {item.amount}
-                          </span>
+                      {/* Themed Severity Icon */}
+                      <div
+                        className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center shrink-0 mt-0.5 shadow-2xs ${
+                          item.type === 'Untagged' || item.status === 'Untagged'
+                            ? 'bg-sky-100 text-[#00a8e7]'
+                            : 'bg-rose-100 text-rose-600'
+                        }`}
+                      >
+                        {item.type === 'Untagged' || item.status === 'Untagged' ? (
+                          <TagX className="w-4 h-4" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4" />
                         )}
                       </div>
 
-                      {/* Row 3: Store Code & Store Name on Left, Time on Right */}
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[10.5px]">
-                        <div className="flex items-center gap-1 text-slate-600 truncate min-w-0">
-                          <Store className="w-3 h-3 text-[#00a8e7] shrink-0" />
-                          <span className="truncate">
-                            <strong className="text-slate-900 font-semibold">
-                              {item.storeCode && item.storeName
-                                ? `${item.storeCode} - ${item.storeName}`
-                                : (item.storeName || item.storeCode || item.date || 'Main Store')}
-                            </strong>
+                      {/* Notification Details */}
+                      <div className="min-w-0 flex-1 space-y-1">
+                        {/* Row 1: Article Description as Main on Left, Event Type Badge on Right */}
+                        <div className="flex items-center justify-between gap-1.5">
+                          <h4 className="font-bold text-slate-900 text-xs sm:text-[12.5px] truncate leading-tight">
+                            {item.articleDescription}
+                          </h4>
+                          <span
+                            className={`shrink-0 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
+                              item.type === 'Untagged' || item.status === 'Untagged'
+                                ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}
+                          >
+                            {item.status || item.type || 'Theft'}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1 text-slate-500 shrink-0 font-medium">
-                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>{item.time}</span>
+                        {/* Row 2: Article Number */}
+                        <div className="flex items-center justify-between gap-1.5 text-[11px] text-slate-500">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 font-medium">Article No:</span>
+                            <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.2 rounded text-[10px] border border-slate-200/80">
+                              {item.articleNo}
+                            </span>
+                          </div>
+                          {item.amount && (
+                            <span className="font-semibold text-slate-900 text-[10.5px]">
+                              {item.amount}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Row 3: Store Code & Store Name on Left, Time on Right */}
+                        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-[10.5px]">
+                          <div className="flex items-center gap-1 text-slate-600 truncate min-w-0">
+                            <Store className="w-3 h-3 text-[#00a8e7] shrink-0" />
+                            <span className="truncate">
+                              <strong className="text-slate-900 font-semibold">
+                                {item.storeCode && item.storeName
+                                  ? `${item.storeCode} - ${item.storeName}`
+                                  : (item.storeName || item.storeCode || item.date || 'Main Store')}
+                              </strong>
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1 text-slate-500 shrink-0 font-medium">
+                            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{item.time}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* View More / View Less Option */}
               {alerts.length > 3 && (

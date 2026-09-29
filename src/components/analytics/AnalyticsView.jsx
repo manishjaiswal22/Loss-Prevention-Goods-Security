@@ -151,10 +151,10 @@ const AnalyticsView = () => {
         <TopStolenData className="h-full" highIncidentTargets={metrics?.highIncidentTargets} />
 
         {/* Row 2, Left: Theft by Time of Day (Hourly Incident Bar Chart) */}
-        <TheftByTimeOfDay className="h-full" />
+        <TheftByTimeOfDay className="h-full" hourlyThefts={metrics?.hourlyThefts} />
 
         {/* Row 2, Right: Theft by Day of Week (Weekly Incident Bar Chart) */}
-        <TheftByDayOfWeek className="h-full" />
+        <TheftByDayOfWeek className="h-full" weeklyThefts={metrics?.weeklyThefts} />
       </div>
     </div>
   );

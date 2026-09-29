@@ -6,10 +6,46 @@ import { THEFT_BY_TIME_DATA, THEFT_BY_TIME_SUMMARY } from '../../data/mockAnalyt
 export default function TheftByTimeOfDay({
   data = THEFT_BY_TIME_DATA,
   summary = THEFT_BY_TIME_SUMMARY,
+  hourlyThefts = null,
   className = '',
 }) {
   const [activeSlot, setActiveSlot] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  const rawSlots = hourlyThefts?.TimeSlots || (Array.isArray(data) ? data : []);
+  const totalThefts = hourlyThefts?.TotalThefts ?? summary?.totalIncidents ?? 0;
+  const highestCount = Math.max(...rawSlots.map((item) => item.Thefts ?? item.count ?? 0), 0);
+  const highRiskWindow = hourlyThefts?.HighRiskWindow || '9AM – 3PM';
+  const rushWindowRaw = hourlyThefts?.RushWindow || (summary?.rushWindowPercentage ? `12PM-6PM (${summary.rushWindowPercentage}%)` : '9AM – 3PM');
+  const rushWindowText = String(rushWindowRaw).replace(/^Rush:\s*/i, '');
+
+  const chartData = rawSlots.map((item, idx) => {
+    const timeSlot = item.TimeSlot || item.timeSlot || '';
+    const count = item.Thefts ?? item.count ?? 0;
+    const label = item.Category || item.label || '';
+    const percentage = item.PercentageOfDay ?? item.Percentage ?? (totalThefts > 0 ? ((count / totalThefts) * 100) : 0);
+    const isPeak = Boolean(
+      (highestCount > 0 && count === highestCount) ||
+      item.IsPeakSlot ||
+      timeSlot === (hourlyThefts?.PeakSlot || summary?.peakSlot)
+    );
+
+    return {
+      timeSlot,
+      count,
+      label,
+      percentage: Number(percentage).toFixed(1),
+      isPeak,
+      order: item.SlotOrder ?? idx + 1,
+    };
+  });
+
+  const peakItems = chartData.filter((d) => d.isPeak);
+  const peakSlot = peakItems.length > 1
+    ? peakItems.map((p) => p.timeSlot).join(' & ')
+    : (hourlyThefts?.PeakSlot || summary?.peakSlot || (peakItems[0]?.timeSlot ?? ''));
+  const peakCount = peakItems[0]?.count ?? (summary?.peakCount ?? 0);
+  const peakPercentage = peakItems[0]?.percentage ?? (summary?.peakPercentage ?? 0);
 
   // SVG Chart Geometry Constants
   const viewBoxWidth = 660;
@@ -19,16 +55,18 @@ export default function TheftByTimeOfDay({
   const chartTop = 24;
   const chartBottom = 250;
   const chartHeight = chartBottom - chartTop; // 226px
-  const maxVal = 30;
+
+  const maxVal = highestCount <= 10 ? 10 : highestCount <= 30 ? 30 : Math.ceil(highestCount / 20) * 20;
 
   // Y-axis grid levels (0, 10, 20, 30)
-  const yTicks = [0, 10, 20, 30];
-  const getY = (val) => chartBottom - (val / maxVal) * chartHeight;
+  const yTicks = [0, Math.round(maxVal / 3), Math.round((maxVal * 2) / 3), maxVal];
+  const getY = (val) => chartBottom - (maxVal > 0 ? (val / maxVal) * chartHeight : 0);
 
   // X-axis bar positions
   const plotWidth = chartRight - chartLeft;
-  const slotWidth = plotWidth / data.length;
-  const barWidth = 52;
+  const slotCount = chartData.length || 6;
+  const slotWidth = plotWidth / slotCount;
+  const barWidth = Math.min(52, slotWidth * 0.55);
 
   return (
     <div
@@ -131,13 +169,13 @@ export default function TheftByTimeOfDay({
             />
 
             {/* Bars and Values */}
-            {data.map((item, idx) => {
-              const barHeight = (item.count / maxVal) * chartHeight;
+            {chartData.map((item, idx) => {
+              const barHeight = maxVal > 0 ? (item.count / maxVal) * chartHeight : 0;
               const xCenter = chartLeft + (idx + 0.5) * slotWidth;
               const barX = xCenter - barWidth / 2;
               const barY = chartBottom - barHeight;
               const isHovered = activeSlot === item.timeSlot;
-              const isPeak = item.count === summary.peakCount;
+              const isPeak = item.isPeak;
               const radius = 5;
 
               // Rounded-top only SVG path
@@ -206,15 +244,18 @@ export default function TheftByTimeOfDay({
       </div>
 
       {/* 3. Bottom Context Sub-bar: Peak Window & Security Patrol Note */}
-      <div className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-rose-50/40 border-t border-rose-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer">
+      <div
+        onClick={() => setShowDetailsModal(true)}
+        className="px-3.5 py-1.5 sm:px-4 sm:py-2 xl:px-5 xl:py-2.5 bg-rose-50/40 border-t border-rose-100/70 flex items-center justify-between text-[10.5px] sm:text-[11px] xl:text-xs h-7 sm:h-8 xl:h-9 shrink-0 cursor-pointer hover:bg-rose-50/70 transition-colors"
+      >
         <span className="truncate mr-2">
           Peak Window:{' '}
-          <strong className="text-rose-600 font-bold">{summary.peakSlot}</strong> ({summary.peakCount} Thefts ·{' '}
-          {summary.peakPercentage}%)
+          <strong className="text-rose-600 font-bold">{peakSlot}</strong> ({peakCount} Thefts ·{' '}
+          {peakPercentage}%)
         </span>
         <span className="font-semibold text-slate-500 shrink-0 flex items-center gap-1">
           <AlertTriangle className="w-3 h-3 xl:w-3.5 xl:h-3.5 text-amber-500" />
-          Rush: 12PM-6PM ({summary.rushWindowPercentage}%)
+          Rush: {rushWindowText}
         </span>
       </div>
 
@@ -252,15 +293,15 @@ export default function TheftByTimeOfDay({
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5">
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Thefts</span>
-                  <span className="text-base font-black text-slate-900">{summary.totalIncidents}</span>
+                  <span className="text-base font-black text-slate-900">{totalThefts}</span>
                 </div>
                 <div className="bg-rose-50 border border-rose-200 rounded-xl p-2.5">
                   <span className="text-[10px] uppercase font-bold text-rose-500 block">Peak Slot</span>
-                  <span className="text-sm font-black text-rose-700">{summary.peakSlot}</span>
+                  <span className="text-sm font-black text-rose-700">{peakSlot}</span>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5">
                   <span className="text-[10px] uppercase font-bold text-amber-600 block">High Risk Window</span>
-                  <span className="text-sm font-black text-amber-800">12PM - 6PM</span>
+                  <span className="text-sm font-black text-amber-800">{highRiskWindow}</span>
                 </div>
               </div>
 
@@ -273,23 +314,25 @@ export default function TheftByTimeOfDay({
                   <span className="text-right">% of Day</span>
                 </div>
                 <div className="divide-y divide-slate-100">
-                  {data.map((item) => {
-                    const pct = ((item.count / summary.totalIncidents) * 100).toFixed(1);
-                    const isPeak = item.count === summary.peakCount;
-
-                    return (
-                      <div
-                        key={item.timeSlot}
-                        className={`px-3 py-2 grid grid-cols-4 items-center ${isPeak ? 'bg-rose-50/50 font-semibold text-rose-900' : 'text-slate-700'
-                          }`}
-                      >
-                        <span className="font-bold">{item.timeSlot}</span>
-                        <span className="text-slate-500">{item.label}</span>
-                        <span className="text-center font-bold">{item.count}</span>
-                        <span className="text-right text-slate-600">{pct}%</span>
-                      </div>
-                    );
-                  })}
+                  {chartData.map((item) => (
+                    <div
+                      key={item.timeSlot}
+                      className={`px-3 py-2 grid grid-cols-4 items-center ${item.isPeak ? 'bg-rose-50/50 font-semibold text-rose-900' : 'text-slate-700'
+                        }`}
+                    >
+                      <span className="font-bold flex items-center gap-1.5">
+                        {item.timeSlot}
+                        {item.isPeak && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 font-extrabold">
+                            Peak
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-slate-500">{item.label}</span>
+                      <span className={`text-center font-bold ${item.isPeak ? 'text-rose-600' : 'text-slate-800'}`}>{item.count}</span>
+                      <span className={`text-right ${item.isPeak ? 'text-rose-600 font-bold' : 'text-slate-600'}`}>{item.percentage}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

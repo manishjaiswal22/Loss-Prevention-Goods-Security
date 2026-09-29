@@ -33,6 +33,39 @@ describe('TagStatusDistributionChart Component', () => {
     const untaggedCard = screen.getByText('Untagged').closest('div');
     fireEvent.mouseEnter(untaggedCard);
 
-    expect(screen.getByText('(2.5%)')).toBeInTheDocument();
+    expect(screen.getByText('(2.4%)')).toBeInTheDocument();
+  });
+
+  it('calculates 3D pie slices dynamically across all 3 values (total, untagged, theft)', () => {
+    const metrics = {
+      totalTags: '45',
+      untagged: '5',
+      theftAlerts: '40',
+      potentialLoss: '₹22,131',
+    };
+
+    render(<TagStatusDistributionChart metrics={metrics} />);
+
+    expect(screen.getByText('Total Tags')).toBeInTheDocument();
+    expect(screen.getAllByText('45').length).toBeGreaterThan(0);
+    expect(screen.getByText('Untagged')).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('Theft Alerts')).toBeInTheDocument();
+    expect(screen.getByText('40')).toBeInTheDocument();
+
+    // Hover untagged slice: 5 / (45 + 5 + 40) = 5.6%
+    const untaggedCard = screen.getByText('Untagged').closest('div');
+    fireEvent.mouseEnter(untaggedCard);
+    expect(screen.getByText('(5.6%)')).toBeInTheDocument();
+
+    // Hover theft slice: 40 / (45 + 5 + 40) = 44.4%
+    const theftCard = screen.getByText('Theft Alerts').closest('div');
+    fireEvent.mouseEnter(theftCard);
+    expect(screen.getByText('(44.4%)')).toBeInTheDocument();
+
+    // Hover total tags slice: 45 / (45 + 5 + 40) = 50%
+    const totalCard = screen.getByText('Total Tags').closest('div');
+    fireEvent.mouseEnter(totalCard);
+    expect(screen.getByText('(50%)')).toBeInTheDocument();
   });
 });

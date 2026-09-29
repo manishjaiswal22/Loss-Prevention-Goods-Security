@@ -10,6 +10,10 @@ export default function TagStatusDistributionChart({
 }) {
   const [activeSegment, setActiveSegment] = useState(null);
 
+  const fallbackTotal = data?.total ?? STATCARD_METRICS.totalTags;
+  const fallbackUntagged = data?.segments?.find((s) => s.id === 'untagged')?.count ?? STATCARD_METRICS.untagged;
+  const fallbackTheft = data?.segments?.find((s) => s.id === 'theft-alerts')?.count ?? STATCARD_METRICS.theftAlerts;
+
   // Parse numerical values from metrics or fallback to defaults
   const parsedTotal = metrics?.totalTags != null && metrics.totalTags !== '...'
     ? Number(String(metrics.totalTags).replace(/,/g, ''))
@@ -25,47 +29,33 @@ export default function TagStatusDistributionChart({
 
   const totalNum = dist?.TotalTags != null
     ? Number(dist.TotalTags)
-    : (parsedTotal != null ? parsedTotal : 0);
+    : (parsedTotal != null ? parsedTotal : fallbackTotal);
 
   const untaggedNum = dist?.Untagged != null
     ? Number(dist.Untagged)
-    : (parsedUntagged != null ? parsedUntagged : 0);
+    : (parsedUntagged != null ? parsedUntagged : fallbackUntagged);
 
   const theftNum = dist?.TheftAlerts != null
     ? Number(dist.TheftAlerts)
-    : (parsedLoss != null ? parsedLoss : 0);
+    : (parsedLoss != null ? parsedLoss : fallbackTheft);
 
-  const safeNum = dist?.ActiveVerified != null
-    ? Number(dist.ActiveVerified)
-    : Math.max(0, totalNum - untaggedNum - theftNum);
+  // Sum of the 3 values for 3-slice proportional calculation
+  const valueSum = totalNum + untaggedNum + theftNum;
 
-  let safePct = 0;
+  // Dynamically calculate exact percentages based on all 3 values (Total Tags, Untagged, Theft Alerts)
+  let totalPct = 0;
   let untaggedPct = 0;
   let theftPct = 0;
 
-  if (totalNum > 0) {
-    if (dist?.SafePercent != null || dist?.ActiveVerifiedPercent != null) {
-      safePct = Number(dist.SafePercent ?? dist.ActiveVerifiedPercent);
-    } else {
-      safePct = Number(((safeNum / totalNum) * 100).toFixed(1));
-    }
-
-    if (dist?.UntaggedPercent != null) {
-      untaggedPct = Number(dist.UntaggedPercent);
-    } else {
-      untaggedPct = Number(((untaggedNum / totalNum) * 100).toFixed(1));
-    }
-
-    if (dist?.TheftAlertPercent != null) {
-      theftPct = Number(dist.TheftAlertPercent);
-    } else {
-      theftPct = Number(((theftNum / totalNum) * 100).toFixed(1));
-    }
+  if (valueSum > 0) {
+    totalPct = Number(((totalNum / valueSum) * 100).toFixed(1));
+    untaggedPct = Number(((untaggedNum / valueSum) * 100).toFixed(1));
+    theftPct = Math.max(0, Number((100 - totalPct - untaggedPct).toFixed(1)));
   }
 
   const potentialLossDisplay = metrics?.potentialLoss && metrics.potentialLoss !== '...'
     ? metrics.potentialLoss
-    : (dist?.PotentialLossDisplay ? `₹${dist.PotentialLossDisplay}` : '₹0');
+    : (dist?.PotentialLossDisplay ? `₹${dist.PotentialLossDisplay}` : '₹4,23,010');
 
   // 3D Isometric Geometry Parameters
   const cx = 110;
@@ -87,7 +77,8 @@ export default function TagStatusDistributionChart({
       label: 'Total Tags',
       sublabel: 'Active & verified in store',
       count: totalNum,
-      percentage: safePct,
+      percentage: totalPct,
+      slicePct: totalPct,
       color: '#10b981',
       darkColor: '#047857',
       topGrad: 'url(#emeraldTop3D)',
@@ -101,6 +92,7 @@ export default function TagStatusDistributionChart({
       sublabel: 'Tag not removed at POS',
       count: untaggedNum,
       percentage: untaggedPct,
+      slicePct: untaggedPct,
       color: '#00a8e7',
       darkColor: '#0284c7',
       topGrad: 'url(#skyTop3D)',
@@ -114,6 +106,7 @@ export default function TagStatusDistributionChart({
       sublabel: 'Gate scanner alarms',
       count: theftNum,
       percentage: theftPct,
+      slicePct: theftPct,
       color: '#f43f5e',
       darkColor: '#be123c',
       topGrad: 'url(#roseTop3D)',
@@ -125,36 +118,122 @@ export default function TagStatusDistributionChart({
 
   const getFrontRimIntervals = (startDeg, endDeg) => {
     const intervals = [];
-    for (let k = -1; k <= 2; k++) {
+    for (let k = -2; k <= 2; k++) {
       const frontStart = k * 360;
       const frontEnd = k * 360 + 180;
       const overlapStart = Math.max(startDeg, frontStart);
       const overlapEnd = Math.min(endDeg, frontEnd);
       if (overlapEnd - overlapStart > 0.1) {
         intervals.push({
-          start: ((overlapStart % 360) + 360) % 360,
-          end: ((overlapEnd % 360) + 360) % 360,
+          start: overlapStart,
+          end: overlapEnd,
         });
       }
     }
     return intervals;
   };
 
-  let currentDeg = 45;
-  const sliceAngles = {};
-  SLICES.forEach((s) => {
-    const pct = totalNum > 0 ? (s.id === 'total-tags' ? safePct : s.percentage) : 0;
-    const sweep = (pct / 100) * 360;
-    const start = currentDeg;
-    const end = currentDeg + sweep;
-    currentDeg = end;
-    const mid = start + sweep / 2;
-    const pullDx = Math.round(Math.cos(toRad(mid)) * 8);
-    const pullDy = Math.round(Math.sin(toRad(mid)) * 7);
-    sliceAngles[s.id] = { start, end, sweep, mid, pullDx, pullDy };
-  });
+  // Filter slices that have a visible percentage on the pie
+  const activePieSlices = SLICES.filter((s) => s.slicePct > 0.5);
 
-  const sortedSlices = [...SLICES]
+  const sliceAngles = {};
+  if (activePieSlices.length === 1) {
+    const singleSlice = activePieSlices[0];
+    sliceAngles[singleSlice.id] = {
+      start: 0,
+      end: 360,
+      sweep: 360,
+      mid: 180,
+      pullDx: 0,
+      pullDy: 8,
+    };
+  } else if (activePieSlices.length === 2) {
+    const smaller = activePieSlices[0].slicePct <= activePieSlices[1].slicePct ? activePieSlices[0] : activePieSlices[1];
+    const larger = activePieSlices.find((s) => s.id !== smaller.id);
+
+    const smallSweep = (smaller.slicePct / 100) * 360;
+    const largeSweep = 360 - smallSweep;
+
+    const smallStart = 90 - smallSweep / 2;
+    const smallEnd = smallStart + smallSweep;
+    const smallMid = 90;
+
+    const largeStart = smallEnd;
+    const largeEnd = largeStart + largeSweep;
+    const largeMid = (largeStart + largeEnd) / 2;
+
+    sliceAngles[smaller.id] = {
+      start: smallStart,
+      end: smallEnd,
+      sweep: smallSweep,
+      mid: smallMid,
+      pullDx: Math.round(Math.cos(toRad(smallMid)) * 8),
+      pullDy: Math.round(Math.sin(toRad(smallMid)) * 7),
+    };
+
+    sliceAngles[larger.id] = {
+      start: largeStart,
+      end: largeEnd,
+      sweep: largeSweep,
+      mid: largeMid,
+      pullDx: Math.round(Math.cos(toRad(largeMid)) * 8),
+      pullDy: Math.round(Math.sin(toRad(largeMid)) * 7),
+    };
+  } else if (activePieSlices.length >= 3) {
+    // 3 slices: Green (Total Tags), Blue (Untagged), Red (Theft Alerts)
+    // Slices meet in the front-facing arc (around 90 deg) for optimal 3D perspective
+    const uSlice = activePieSlices.find((s) => s.id === 'untagged') || activePieSlices[1];
+    const tSlice = activePieSlices.find((s) => s.id === 'theft-alerts') || activePieSlices[2];
+    const gSlice = activePieSlices.find((s) => s.id === 'total-tags') || activePieSlices[0];
+
+    const uSweep = (uSlice.slicePct / 100) * 360;
+    const tSweep = (tSlice.slicePct / 100) * 360;
+    const gSweep = 360 - uSweep - tSweep;
+
+    // Untagged is centered on the front-center (90 - uSweep to 90 deg)
+    // Red (Theft) goes from 90 deg leftward to 90 + tSweep
+    // Green (Total) wraps the rest
+    const uStart = 90 - uSweep;
+    const uEnd = 90;
+    const uMid = (uStart + uEnd) / 2;
+
+    const tStart = 90;
+    const tEnd = 90 + tSweep;
+    const tMid = (tStart + tEnd) / 2;
+
+    const gStart = tEnd;
+    const gEnd = gStart + gSweep;
+    const gMid = (gStart + gEnd) / 2;
+
+    sliceAngles[uSlice.id] = {
+      start: uStart,
+      end: uEnd,
+      sweep: uSweep,
+      mid: uMid,
+      pullDx: Math.round(Math.cos(toRad(uMid)) * 8),
+      pullDy: Math.round(Math.sin(toRad(uMid)) * 7),
+    };
+
+    sliceAngles[tSlice.id] = {
+      start: tStart,
+      end: tEnd,
+      sweep: tSweep,
+      mid: tMid,
+      pullDx: Math.round(Math.cos(toRad(tMid)) * 8),
+      pullDy: Math.round(Math.sin(toRad(tMid)) * 7),
+    };
+
+    sliceAngles[gSlice.id] = {
+      start: gStart,
+      end: gEnd,
+      sweep: gSweep,
+      mid: gMid,
+      pullDx: Math.round(Math.cos(toRad(gMid)) * 8),
+      pullDy: Math.round(Math.sin(toRad(gMid)) * 7),
+    };
+  }
+
+  const sortedSlices = [...activePieSlices]
     .filter((s) => sliceAngles[s.id] && sliceAngles[s.id].sweep > 0.5)
     .sort((a, b) => {
       const midA = sliceAngles[a.id].mid;
@@ -164,7 +243,7 @@ export default function TagStatusDistributionChart({
 
   // Render SVG paths for a slice in 3D
   const render3DSlice = (slice) => {
-    if (totalNum === 0) return null;
+    if (totalNum === 0 && valueSum === 0) return null;
     const angleInfo = sliceAngles[slice.id];
     if (!angleInfo || angleInfo.sweep <= 0.5) return null;
 
@@ -371,6 +450,9 @@ export default function TagStatusDistributionChart({
                 </span>
                 <span className="font-bold text-slate-900">
                   {activeData.count.toLocaleString('en-IN')}
+                </span>
+                <span className="text-slate-500 font-medium">
+                  ({activeData.percentage}%)
                 </span>
               </div>
             ) : (

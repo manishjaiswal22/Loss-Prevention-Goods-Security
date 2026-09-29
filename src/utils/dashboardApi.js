@@ -119,6 +119,8 @@ export async function fetchAnalyticsDashboard(payload = { Preset: 'Today' }) {
       potentialLoss: formatCurrency(rawLoss),
       tagStatusDistribution: data.TagStatusDistribution || null,
       highIncidentTargets: data.HighIncidentTargets || null,
+      hourlyThefts: data.HourlyThefts || null,
+      weeklyThefts: data.WeeklyThefts || null,
     };
   } catch (error) {
     console.error('Error fetching analytics dashboard data:', error);
@@ -160,20 +162,43 @@ export async function fetchIncidentReport(payload = {}) {
     }
 
     const data = await response.json();
+    const summary = data.Summary || {};
+    const totalAll = Number(data.TotalAll ?? data.TotalTags ?? summary.TotalTags ?? data.TotalRecords ?? 0);
+    const totalTheft = Number(data.TotalTheft ?? data.TheftAlerts ?? summary.TheftAlerts ?? summary.Loss ?? 0);
+    const totalUntagged = Number(data.TotalUntagged ?? data.Untagged ?? summary.Untagged ?? summary.Checkout ?? 0);
+    const totalTags = Number(data.TotalTags ?? summary.TotalTags ?? totalAll);
+    const theftAlerts = Number(data.TheftAlerts ?? summary.TheftAlerts ?? totalTheft);
+    const untagged = Number(data.Untagged ?? summary.Untagged ?? totalUntagged);
+
+    let potentialLoss = data.PotentialLossDisplay || data.TotalLossDisplay || summary.PotentialLossDisplay;
+    if (!potentialLoss) {
+      const rawLoss = data.PotentialLoss ?? summary.PotentialLoss ?? 0;
+      potentialLoss = `₹${Number(rawLoss).toLocaleString('en-IN')}`;
+    }
+
     return {
       code: data.Code,
       msg: data.Msg,
-      totalAll: data.TotalAll ?? 0,
-      totalTheft: data.TotalTheft ?? 0,
-      totalUntagged: data.TotalUntagged ?? 0,
-      pageNumber: data.PageNumber ?? body.PageNumber,
-      pageSize: data.PageSize ?? body.PageSize,
-      totalRecords: data.TotalRecords ?? 0,
-      totalPages: data.TotalPages ?? 1,
+      preset: data.Preset,
+      startDate: data.StartDate,
+      endDate: data.EndDate,
+      summary: data.Summary || null,
+      totalAll,
+      totalTheft,
+      totalUntagged,
+      totalTags,
+      theftAlerts,
+      untagged,
+      potentialLoss,
+      pageNumber: Number(data.PageNumber ?? body.PageNumber),
+      pageSize: Number(data.PageSize ?? body.PageSize),
+      totalRecords: Number(data.TotalRecords ?? (data.Records ? data.Records.length : 0)),
+      totalPages: Number(data.TotalPages ?? 1),
       records: (data.Records || []).map((item, idx) => ({
         id: item.EpcCode || `inc-${item.SrNo || idx}`,
         srNo: item.SrNo ?? idx + 1,
         date: item.Date || '',
+        time: item.Time || '',
         storeCode: item.StoreCode || '',
         storeName: item.StoreName || '',
         epc: item.EpcCode || '',
@@ -181,6 +206,7 @@ export async function fetchIncidentReport(payload = {}) {
         articleDescription: item.ArticleDescription || '',
         qty: item.Qty ?? 1,
         amount: Number(item.Amount || 0),
+        amountDisplay: item.AmountDisplay || `₹${Number(item.Amount || 0).toLocaleString('en-IN')}`,
         eventType: item.EventType || 'Theft',
       })),
     };
