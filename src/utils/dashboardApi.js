@@ -15,6 +15,11 @@ export function formatCurrency(val) {
   return `₹${str}`;
 }
 
+// In development mode, always route via Vite proxy ('/api') to avoid browser CORS errors
+const API_BASE_URL = import.meta.env.DEV
+  ? ''
+  : (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 /**
  * Fetch today's dashboard overview cards data from /api/todayDashboard
  * @param {Object} payload Optional request payload
@@ -22,7 +27,7 @@ export function formatCurrency(val) {
  */
 export async function fetchDashboardRecord(payload = {}) {
   try {
-    let response = await fetch('/api/todayDashboard', {
+    let response = await fetch(`${API_BASE_URL}/api/todayDashboard`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +45,7 @@ export async function fetchDashboardRecord(payload = {}) {
     // If today has 0 records and no specific Date was requested, fall back to recent recorded date 2026-09-28
     if (!payload.Date && (!summary.TotalTags || Number(summary.TotalTags) === 0)) {
       try {
-        const fallbackRes = await fetch('/api/todayDashboard', {
+        const fallbackRes = await fetch(`${API_BASE_URL}/api/todayDashboard`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...payload, Date: '2026-09-28' }),
@@ -91,7 +96,7 @@ export const fetchTodayRecord = fetchDashboardRecord;
 
 export async function fetchAnalyticsDashboard(payload = { Preset: 'Today' }) {
   try {
-    const response = await fetch('/api/analyticsDashboard', {
+    const response = await fetch(`${API_BASE_URL}/api/analyticsDashboard`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -149,7 +154,7 @@ export async function fetchIncidentReport(payload = {}) {
       body.StoreCode = payload.StoreCode;
     }
 
-    const response = await fetch('/api/incidentReport', {
+    const response = await fetch(`${API_BASE_URL}/api/incidentReport`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

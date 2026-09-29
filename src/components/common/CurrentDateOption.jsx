@@ -21,8 +21,21 @@ export default function CurrentDateOption({
         ? 'Yesterday'
         : 'Date';
 
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   return (
-    <div className={`relative inline-block ${className}`}>
+    <div ref={containerRef} className={`relative inline-block ${className}`}>
       {/* Current Date Button */}
       <button
         type="button"
@@ -38,6 +51,19 @@ export default function CurrentDateOption({
           {dateLabel}
         </span>
       </button>
+
+      {/* Popover */}
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-left">
+          <div className="flex items-center gap-2 mb-1.5 text-slate-900 font-bold text-xs">
+            <Info className="w-3.5 h-3.5 text-[#5236df]" />
+            <span>Current Date</span>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Locked to Today's active operational hours. For historical and custom date range analysis, visit the Analytics or Incident Reports views.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,11 @@
  * Connects to Backend API (/api/login)
  */
 
+// In development mode, always route via Vite proxy ('/api') to avoid browser CORS errors
+const API_BASE_URL = import.meta.env.DEV
+  ? ''
+  : (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 /**
  * Authenticates user credentials against the backend API and Microsoft SQL Server.
  * @param {string} username User account name (e.g., 'admin', 'manish')
@@ -11,7 +16,7 @@
  */
 export async function loginUser(username, password) {
   try {
-    const response = await fetch('/api/login', {
+    const response = await fetch(`${API_BASE_URL}/api/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
