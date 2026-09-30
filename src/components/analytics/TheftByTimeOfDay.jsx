@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Clock, ArrowRight, X, AlertTriangle } from 'lucide-react';
-import { THEFT_BY_TIME_DATA, THEFT_BY_TIME_SUMMARY } from '../../data/mockAnalyticsData';
 
 
 export default function TheftByTimeOfDay({
-  data = THEFT_BY_TIME_DATA,
-  summary = THEFT_BY_TIME_SUMMARY,
+  data = [],
+  summary = null,
   hourlyThefts = null,
   className = '',
 }) {

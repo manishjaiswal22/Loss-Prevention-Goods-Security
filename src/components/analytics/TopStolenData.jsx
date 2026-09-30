@@ -1,12 +1,6 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
-import { TOP_STOLEN_ITEMS_DATA } from '../../data/mockAnalyticsData';
 
-/**
- * TopStolenData Component
- * Displays top stolen merchandise articles and their theft counts.
- * Features full-width progress bars with article number clearly displayed below the bar.
- */
 const ITEM_COLORS = [
   '#8b5cf6',
   '#00a8e7',
@@ -24,7 +18,7 @@ export default function TopStolenData({
   className = '',
 }) {
   const targetData = highIncidentTargets;
-  const rawItems = targetData?.TopItems ?? items ?? (targetData === undefined ? TOP_STOLEN_ITEMS_DATA : []);
+  const rawItems = targetData?.TopItems ?? items ?? [];
 
   const itemsList = (rawItems || []).map((item, index) => {
     const articleNumber = item.ArticleNo || item.articleNumber || item.Article || 'N/A';

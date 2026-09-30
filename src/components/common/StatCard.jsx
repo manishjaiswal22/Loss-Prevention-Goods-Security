@@ -1,4 +1,5 @@
 import React from 'react';
+import TickerNumber from './TickerNumber';
 
 
 const DefaultCardIcon = ({ className = 'w-10 h-10' }) => (
@@ -150,9 +151,9 @@ export default function StatCard({
         <h4 className={`mb-1.5 sm:mb-2 text-xs sm:text-[13px] xl:text-[13.5px] 2xl:text-sm font-semibold tracking-tight truncate ${currentTheme.titleColor}`}>
           {cardTitle}
         </h4>
-        <p className={`text-lg sm:text-xl xl:text-2xl 2xl:text-[26px] font-bold tracking-tight mt-0.5 ${currentTheme.countColor}`}>
-          {cardCount}
-        </p>
+        <div className={`text-lg sm:text-xl xl:text-2xl 2xl:text-[26px] font-bold tracking-tight mt-0.5 ${currentTheme.countColor}`}>
+          <TickerNumber value={cardCount} />
+        </div>
       </div>
 
       {/* Background: Big Icon on Right with Opacity */}

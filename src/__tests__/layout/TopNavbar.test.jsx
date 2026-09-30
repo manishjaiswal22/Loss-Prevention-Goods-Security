@@ -3,6 +3,46 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import TopNavbar from '../../components/layout/TopNavbar';
 
+vi.mock('../../utils/dashboardApi', () => {
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = new Date();
+  const todayDMY = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+
+  return {
+    fetchDashboardRecord: vi.fn().mockResolvedValue({
+      theftAlerts: 2,
+      incidents: [
+        {
+          id: 'inc-1',
+          articleDescription: 'Men Slim Fit Denim Jeans',
+          articleNo: 'ART-10492',
+          epc: '000001',
+          amount: '₹1,999',
+          date: todayDMY,
+          time: '14:22',
+          storeCode: 'HD55',
+          storeName: 'Dwarka',
+          status: 'Theft Alert',
+          type: 'Theft',
+        },
+        {
+          id: 'inc-2',
+          articleDescription: 'Cotton Casual Shirt',
+          articleNo: 'ART-20341',
+          epc: '000002',
+          amount: '₹1,299',
+          date: todayDMY,
+          time: '14:15',
+          storeCode: 'HD55',
+          storeName: 'Dwarka',
+          status: 'Theft Alert',
+          type: 'Theft',
+        },
+      ],
+    }),
+  };
+});
+
 describe('TopNavbar Component', () => {
   it('renders application title and subtitle', () => {
     render(<TopNavbar />);
@@ -21,20 +61,20 @@ describe('TopNavbar Component', () => {
     expect(handleToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles notifications dropdown when bell icon is clicked and displays article, store, and time details', () => {
+  it('toggles notifications dropdown when bell icon is clicked and displays article, store, and time details', async () => {
     render(<TopNavbar />);
 
     const bellBtn = screen.getByTitle('Theft & Security Alerts');
     fireEvent.click(bellBtn);
 
     expect(screen.getByText('Security Alerts')).toBeInTheDocument();
-    expect(screen.getByText('2 New')).toBeInTheDocument();
+    expect(await screen.findByText('2 New')).toBeInTheDocument();
 
     // Verify article description as main, article no, store code, store name, and time
-    expect(screen.getByText('Men Slim Fit Denim Jeans')).toBeInTheDocument();
+    expect(await screen.findByText('Men Slim Fit Denim Jeans')).toBeInTheDocument();
     expect(screen.getByText('ART-10492')).toBeInTheDocument();
-    expect(screen.getByText(/HD55/i)).toBeInTheDocument();
-    expect(screen.getByText(/Dwarka/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/HD55/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Dwarka/i).length).toBeGreaterThan(0);
     expect(screen.getByText('14:22')).toBeInTheDocument();
   });
 

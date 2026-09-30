@@ -1,8 +1,43 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import ReportsView from '../../components/reports/ReportsView';
+
+vi.mock('../../utils/dashboardApi', () => ({
+  fetchIncidentReport: vi.fn().mockResolvedValue({
+    code: 1,
+    msg: 'Success',
+    totalAll: 45,
+    totalTheft: 40,
+    totalUntagged: 5,
+    totalTags: 45,
+    theftAlerts: 40,
+    untagged: 5,
+    potentialLoss: '₹22,131',
+    pageNumber: 1,
+    pageSize: 10,
+    totalRecords: 45,
+    totalPages: 5,
+    records: [
+      {
+        id: 'inc-1',
+        srNo: 1,
+        date: '29-09-2026',
+        time: '14:20:00',
+        storeCode: 'HD44',
+        storeName: 'UTTAM NAGAR',
+        epc: '000001622295100000000001',
+        articleNo: 'ART-10492',
+        articleDescription: 'Crewneck Sweatshirt',
+        qty: 1,
+        amount: 1499,
+        amountDisplay: '₹1,499',
+        eventType: 'Theft',
+      },
+    ],
+  }),
+}));
 
 describe('ReportsView Component', () => {
   it('renders report header, KPI StatCards, and interactive React DataTable', () => {
@@ -19,12 +54,16 @@ describe('ReportsView Component', () => {
     expect(screen.getAllByText('Event Type').length).toBeGreaterThan(0);
   });
 
-  it('filters table rows when search input changes', () => {
+  it('filters table rows when search input changes', async () => {
     render(
       <MemoryRouter>
         <ReportsView />
       </MemoryRouter>
     );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('ART-10492').length).toBeGreaterThan(0);
+    });
 
     const searchInput = screen.getByPlaceholderText(/Search by EPC, Article No, Description, Store/i);
     fireEvent.change(searchInput, { target: { value: 'ART-10492' } });

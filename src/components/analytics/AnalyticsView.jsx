@@ -21,7 +21,13 @@ const formatApiDate = (date) => {
 
 const AnalyticsView = () => {
   const [loading, setLoading] = useState(false);
-  const [datePayload, setDatePayload] = useState({ Preset: 'Today' });
+  const todayStr = formatApiDate(new Date());
+  const [datePayload, setDatePayload] = useState({
+    StartDate: todayStr,
+    EndDate: todayStr,
+    FromDate: todayStr,
+    ToDate: todayStr,
+  });
   const [currentStoreId, setCurrentStoreId] = useState(null);
   const [metrics, setMetrics] = useState({
     totalTags: '0',
@@ -61,26 +67,52 @@ const AnalyticsView = () => {
   }, []);
 
   const handleDateChange = (label, rangeInfo) => {
-    let payload = { Preset: 'Today' };
+    let start = '';
+    let end = '';
 
-    if (label === 'Today') {
-      payload = { Preset: 'Today' };
-    } else if (label === 'Last 7 Days' || label === 'Last7Days') {
-      payload = { Preset: 'Last7Days' };
-    } else if (label === 'Last 30 Days' || label === 'Last30Days') {
-      payload = { Preset: 'Last30Days' };
-    } else if (rangeInfo?.startDate && rangeInfo?.endDate) {
-      payload = {
-        Preset: 'Custom',
-        FromDate: formatApiDate(rangeInfo.startDate),
-        ToDate: formatApiDate(rangeInfo.endDate),
-      };
+    if (rangeInfo?.startDate && rangeInfo?.endDate) {
+      start = formatApiDate(rangeInfo.startDate);
+      end = formatApiDate(rangeInfo.endDate);
     } else {
-      payload = { Preset: label };
+      const today = new Date();
+      if (label === 'Today') {
+        start = formatApiDate(today);
+        end = formatApiDate(today);
+      } else if (label === 'Yesterday') {
+        const y = new Date(today);
+        y.setDate(today.getDate() - 1);
+        start = formatApiDate(y);
+        end = formatApiDate(y);
+      } else if (label === 'Last 7 Days') {
+        const d7 = new Date(today);
+        d7.setDate(today.getDate() - 6);
+        start = formatApiDate(d7);
+        end = formatApiDate(today);
+      } else if (label === 'This Month') {
+        const mStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        start = formatApiDate(mStart);
+        end = formatApiDate(today);
+      } else if (label === 'Last 30 Days') {
+        const d30 = new Date(today);
+        d30.setDate(today.getDate() - 29);
+        start = formatApiDate(d30);
+        end = formatApiDate(today);
+      } else {
+        start = formatApiDate(today);
+        end = formatApiDate(today);
+      }
     }
+
+    const payload = {
+      StartDate: start,
+      EndDate: end,
+      FromDate: start,
+      ToDate: end,
+    };
 
     if (currentStoreId) {
       payload.StoreId = currentStoreId;
+      payload.StoreCode = currentStoreId;
     }
 
     setDatePayload(payload);
@@ -94,8 +126,10 @@ const AnalyticsView = () => {
       const payload = { ...datePayload };
       if (storeId) {
         payload.StoreId = storeId;
+        payload.StoreCode = storeId;
       } else {
         delete payload.StoreId;
+        delete payload.StoreCode;
       }
       await loadMetrics(payload);
       setLoading(false);

@@ -10,7 +10,11 @@ import {
   TagX,
   AlertTriangle,
 } from 'lucide-react';
-import { fetchDashboardRecord } from '../../utils/dashboardApi';
+import {
+  fetchDashboardRecord,
+  subscribeToLiveStream,
+  normalizeSingleIncident,
+} from '../../utils/dashboardApi';
 
 export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -22,14 +26,34 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const profileRef = useRef(null);
 
   const loadTheftAlerts = () => {
-    fetchDashboardRecord()
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const todayDMY = `${pad(today.getDate())}-${pad(today.getMonth() + 1)}-${today.getFullYear()}`;
+    const todayYMD = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+    fetchDashboardRecord({ Date: todayYMD, StartDate: todayYMD, EndDate: todayYMD })
       .then((data) => {
         if (data) {
-          const count = Number(data.theftAlerts) || (data.incidents ? data.incidents.length : 0);
-          setTheftCount(count);
-          if (data.incidents && Array.isArray(data.incidents)) {
-            setAlerts(data.incidents);
-          }
+          const incidentList = Array.isArray(data.incidents) ? data.incidents : [];
+          // Strictly filter to current date notifications
+          const currentDayAlerts = incidentList.filter((item) => {
+            if (!item.date) return true;
+            const itemDate = String(item.date).trim();
+            if (itemDate === todayDMY || itemDate === todayYMD) return true;
+            if (itemDate.replace(/\//g, '-') === todayDMY || itemDate.replace(/\//g, '-') === todayYMD) return true;
+            const parsed = new Date(itemDate);
+            if (!isNaN(parsed.getTime())) {
+              return (
+                parsed.getDate() === today.getDate() &&
+                parsed.getMonth() === today.getMonth() &&
+                parsed.getFullYear() === today.getFullYear()
+              );
+            }
+            return false;
+          });
+
+          setAlerts(currentDayAlerts);
+          setTheftCount(currentDayAlerts.length);
         }
       })
       .catch((err) => {
@@ -39,6 +63,76 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
 
   useEffect(() => {
     loadTheftAlerts();
+
+    // Subscribe to SSE live stream for real-time notification badge updates
+    const unsubscribe = subscribeToLiveStream(
+      (liveData) => {
+        if (!liveData) return;
+        const today = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const todayDMY = `${pad(today.getDate())}-${pad(today.getMonth() + 1)}-${today.getFullYear()}`;
+        const todayYMD = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+        const isToday = (d) => {
+          if (!d) return true;
+          const str = String(d).trim();
+          if (str === todayDMY || str === todayYMD) return true;
+          if (str.replace(/\//g, '-') === todayDMY || str.replace(/\//g, '-') === todayYMD) return true;
+          const parsed = new Date(str);
+          if (!isNaN(parsed.getTime())) {
+            return (
+              parsed.getDate() === today.getDate() &&
+              parsed.getMonth() === today.getMonth() &&
+              parsed.getFullYear() === today.getFullYear()
+            );
+          }
+          return false;
+        };
+
+        // Case 1: Full dashboard update
+        if (liveData.incidents && Array.isArray(liveData.incidents)) {
+          const currentDayAlerts = liveData.incidents.filter((item) => isToday(item.date));
+          setAlerts(currentDayAlerts);
+          setTheftCount(currentDayAlerts.length);
+        }
+        // Case 2: Array of incidents
+        else if (Array.isArray(liveData)) {
+          const newAlerts = liveData.map(normalizeSingleIncident).filter(Boolean).filter((item) => isToday(item.date));
+          setAlerts((prev) => {
+            const existingIds = new Set(prev.map((a) => a.epc || a.id));
+            const unique = newAlerts.filter((a) => !existingIds.has(a.epc || a.id));
+            const updated = [...unique, ...prev];
+            setTheftCount(updated.length);
+            return updated;
+          });
+        }
+        // Case 3: Single incident
+        else if (liveData.EPC || liveData.EpcCode || liveData.ArticleDescription) {
+          const newAlert = normalizeSingleIncident(liveData);
+          if (newAlert && isToday(newAlert.date)) {
+            setAlerts((prev) => {
+              const exists = prev.some((a) => (a.epc && a.epc === newAlert.epc) || a.id === newAlert.id);
+              if (exists) return prev;
+              const updated = [newAlert, ...prev];
+              setTheftCount(updated.length);
+              return updated;
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn('Navbar live stream error/retry:', err);
+      },
+      (status) => {
+        if (status === 'connected') {
+          loadTheftAlerts();
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Close notifications or profile dropdown when clicking outside
@@ -112,14 +206,19 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
           {notificationsOpen && (
             <div className="absolute right-0 mt-2 w-84 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <span className="font-bold text-sm text-slate-900">Security Alerts</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-slate-900">Security Alerts</span>
+                  <span className="text-[10px] font-bold text-[#007ba8] bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-full">
+                    Today
+                  </span>
+                </div>
                 <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/60">
                   {theftCount} New
                 </span>
               </div>
               {alerts.length === 0 ? (
                 <div className="py-6 text-center text-xs text-slate-400 font-medium">
-                  No security alerts at this time
+                  No security alerts for today
                 </div>
               ) : (
                 <div className={`space-y-2.5 mt-3 ${showAllAlerts ? 'max-h-72 sm:max-h-80 overflow-y-auto custom-scrollbar pr-1' : ''}`}>
@@ -169,9 +268,13 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                               {item.articleNo}
                             </span>
                           </div>
-                          {item.amount && (
+                          {item.amount && item.amount !== 'N/A' && item.amount !== 'NA' ? (
                             <span className="font-semibold text-slate-900 text-[10.5px]">
-                              {item.amount}
+                              {String(item.amount).startsWith('₹') ? item.amount : `₹${item.amount}`}
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-slate-900 text-[10.5px]">
+                              ₹0
                             </span>
                           )}
                         </div>

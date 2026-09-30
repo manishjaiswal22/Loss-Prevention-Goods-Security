@@ -5,7 +5,6 @@ import DateFilter from '../common/DateFilter';
 import StatCard from '../common/StatCard';
 import DataTable from '../common/DataTable';
 import { fetchIncidentReport } from '../../utils/dashboardApi';
-import { MOCK_REPORTS_DATA } from '../../data/mockReportsData';
 import * as XLSX from 'xlsx';
 import {
   Search,
@@ -51,24 +50,19 @@ const ReportsView = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEventType, setSelectedEventType] = useState('All'); // 'All' | 'Theft' | 'Untagged'
-  const [reportData, setReportData] = useState(() => {
-    const totalAll = MOCK_REPORTS_DATA.length;
-    const totalTheft = MOCK_REPORTS_DATA.filter((r) => r.eventType === 'Theft').length;
-    const totalUntagged = MOCK_REPORTS_DATA.filter((r) => r.eventType === 'Untagged').length;
-    return {
-      records: MOCK_REPORTS_DATA,
-      totalRecords: totalAll,
-      totalAll,
-      totalTheft,
-      totalUntagged,
-      totalTags: totalAll,
-      theftAlerts: totalTheft,
-      untagged: totalUntagged,
-      potentialLoss: '₹4,23,010',
-      pageSize: 10,
-      pageNumber: 1,
-      totalPages: Math.ceil(totalAll / 10),
-    };
+  const [reportData, setReportData] = useState({
+    records: [],
+    totalRecords: 0,
+    totalAll: 0,
+    totalTheft: 0,
+    totalUntagged: 0,
+    totalTags: 0,
+    theftAlerts: 0,
+    untagged: 0,
+    potentialLoss: '₹0',
+    pageSize: 10,
+    pageNumber: 1,
+    totalPages: 1,
   });
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -337,15 +331,29 @@ const ReportsView = () => {
       {
         id: 'amount',
         name: 'Amount',
-        selector: (row) => row.amount,
+        selector: (row) => row.amount ?? 0,
         sortable: true,
         width: '105px',
         right: true,
-        cell: (row) => (
-          <span className="font-semibold text-slate-800 text-[11px] tabular-nums">
-            ₹{row.amount.toLocaleString('en-IN')}
-          </span>
-        ),
+        cell: (row) => {
+          const raw = row.amountDisplay || row.amount;
+          if (raw == null || raw === '' || raw === 'N/A' || raw === 'NA' || raw === '₹N/A' || raw === '₹NA') {
+            return (
+              <span className="font-semibold text-slate-800 text-[11px] tabular-nums">
+                ₹0
+              </span>
+            );
+          }
+          const num = typeof row.amount === 'number' && !isNaN(row.amount)
+            ? row.amount
+            : Number(String(raw).replace(/[₹,\s]/g, ''));
+          const safeNum = isNaN(num) ? 0 : num;
+          return (
+            <span className="font-semibold text-slate-800 text-[11px] tabular-nums">
+              ₹{safeNum.toLocaleString('en-IN')}
+            </span>
+          );
+        },
       },
       {
         id: 'eventType',
@@ -596,28 +604,38 @@ const ReportsView = () => {
           count={(reportData.totalTags ?? reportData.totalAll ?? 0).toLocaleString('en-IN')}
           icon={Tag}
           variant="green"
-          loading={loading && !reportData.records?.length}
+          loading={loading && reportData.totalRecords === undefined}
         />
         <StatCard
           title="Untagged"
           count={(reportData.untagged ?? reportData.totalUntagged ?? 0).toLocaleString('en-IN')}
           icon={TagX}
           variant="blue"
-          loading={loading && !reportData.records?.length}
+          loading={loading && reportData.totalRecords === undefined}
         />
         <StatCard
           title="Theft Alerts"
           count={(reportData.theftAlerts ?? reportData.totalTheft ?? 0).toLocaleString('en-IN')}
           icon={AlertTriangle}
           variant="gray"
-          loading={loading && !reportData.records?.length}
+          loading={loading && reportData.totalRecords === undefined}
         />
         <StatCard
           title="Potential Loss"
-          count={reportData.potentialLoss || '₹0'}
+          count={
+            !reportData.potentialLoss ||
+            reportData.potentialLoss === 'N/A' ||
+            reportData.potentialLoss === 'NA' ||
+            reportData.potentialLoss === '₹N/A' ||
+            reportData.potentialLoss === '₹NA'
+              ? '₹0'
+              : reportData.potentialLoss.startsWith('₹')
+                ? reportData.potentialLoss
+                : `₹${reportData.potentialLoss}`
+          }
           icon={TrendingDown}
           variant="rose"
-          loading={loading && !reportData.records?.length}
+          loading={loading && reportData.totalRecords === undefined}
         />
       </div>
 
@@ -702,7 +720,7 @@ const ReportsView = () => {
                       <button
                         type="button"
                         onClick={() => setRowsDropdownOpen((prev) => !prev)}
-                        className="h-8.5 px-3 bg-white border border-slate-200/90 hover:border-slate-300 rounded-lg flex items-center justify-between gap-2.5 text-xs font-bold text-slate-800 shadow-2xs transition-all cursor-pointer min-w-[76px]"
+                        className="h-7.5 px-3 bg-white border border-slate-300 hover:border-slate-300 rounded-xl outline-none flex items-center justify-between gap-2.5 text-xs font-bold text-slate-800 shadow-2xs transition-all cursor-pointer min-w-[76px]"
                         aria-haspopup="listbox"
                         aria-expanded={rowsDropdownOpen}
                       >
@@ -881,7 +899,12 @@ const ReportsView = () => {
                   <td className="py-1.5 px-2 font-mono text-slate-800">{item.articleNo}</td>
                   <td className="py-1.5 px-2 text-slate-800">{item.articleDescription}</td>
                   <td className="py-1.5 px-2 text-center text-slate-800">{item.qty}</td>
-                  <td className="py-1.5 px-2 text-right text-slate-800">₹{item.amount.toLocaleString('en-IN')}</td>
+                  <td className="py-1.5 px-2 text-right text-slate-800">
+                    ₹{(typeof item.amount === 'number' && !isNaN(item.amount)
+                      ? item.amount
+                      : Number(String(item.amount ?? 0).replace(/[₹,\s]/g, '')) || 0
+                    ).toLocaleString('en-IN')}
+                  </td>
                   <td className="py-1.5 px-2 text-center">
                     <span
                       className={`inline-block px-2 py-0.5 rounded-lg border border-slate-300 text-[9.5px] font-semibold text-slate-800 ${

@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import { PieChart as PieIcon, Tag, TagX, AlertTriangle, TrendingDown } from 'lucide-react';
-import { TAG_STATUS_DATA, STATCARD_METRICS } from '../../data/mockAnalyticsData';
-
 
 export default function TagStatusDistributionChart({
-  data = TAG_STATUS_DATA,
+  data = null,
   metrics,
   className = '',
 }) {
   const [activeSegment, setActiveSegment] = useState(null);
 
-  const fallbackTotal = data?.total ?? STATCARD_METRICS.totalTags;
-  const fallbackUntagged = data?.segments?.find((s) => s.id === 'untagged')?.count ?? STATCARD_METRICS.untagged;
-  const fallbackTheft = data?.segments?.find((s) => s.id === 'theft-alerts')?.count ?? STATCARD_METRICS.theftAlerts;
+  const fallbackTotal = data?.total ?? 0;
+  const fallbackUntagged = data?.segments?.find((s) => s.id === 'untagged')?.count ?? 0;
+  const fallbackTheft = data?.segments?.find((s) => s.id === 'theft-alerts')?.count ?? 0;
 
   // Parse numerical values from metrics or fallback to defaults
   const parsedTotal = metrics?.totalTags != null && metrics.totalTags !== '...'

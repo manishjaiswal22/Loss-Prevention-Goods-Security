@@ -1,18 +1,9 @@
 import React, { useState } from 'react';
 import { Calendar, ArrowRight, X, TrendingUp } from 'lucide-react';
-import { THEFT_BY_DAY_OF_WEEK_DATA, THEFT_BY_DAY_OF_WEEK_SUMMARY } from '../../data/mockAnalyticsData';
 
-/**
- * TheftByDayOfWeek Component
- * Renders a weekly theft incident distribution bar chart matching the reference design:
- * - Y-Axis ticks at 0, 10, 20, 30, 40 with horizontal dashed gridlines.
- * - 7 Days of the week: Mon (22), Tue (18), Wed (35 - Peak), Thu (27), Fri (30), Sat (25), Sun (20).
- * - Vibrant blue rounded-top vertical bars with values centered directly above each bar.
- * - Interactive "View Details" modal and hover tooltips.
- */
 export default function TheftByDayOfWeek({
-  data = THEFT_BY_DAY_OF_WEEK_DATA,
-  summary = THEFT_BY_DAY_OF_WEEK_SUMMARY,
+  data = [],
+  summary = null,
   weeklyThefts = null,
   className = '',
 }) {

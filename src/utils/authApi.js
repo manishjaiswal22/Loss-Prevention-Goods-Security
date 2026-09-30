@@ -1,16 +1,10 @@
-/**
- * Authentication API Service
- * Connects to Backend API (/api/login)
- */
 
-// In development mode, always route via Vite proxy ('/api') to avoid browser CORS errors
 const API_BASE_URL = import.meta.env.DEV
   ? ''
   : (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 /**
- * Authenticates user credentials against the backend API and Microsoft SQL Server.
- * @param {string} username User account name (e.g., 'admin', 'manish')
+* @param {string} username User account name (e.g., 'admin', 'manish')
  * @param {string} password User password
  * @returns {Promise<{success: boolean, message: string, user?: Object, token?: string, code: number}>}
  */
