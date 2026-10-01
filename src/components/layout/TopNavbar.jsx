@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Menu,
   Bell,
@@ -14,6 +14,8 @@ import {
   fetchDashboardRecord,
   subscribeToLiveStream,
   normalizeSingleIncident,
+  onDashboardSync,
+  isTodayIncident,
 } from '../../utils/dashboardApi';
 
 export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
@@ -21,104 +23,94 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [alerts, setAlerts] = useState([]);
   const [theftCount, setTheftCount] = useState(0);
+  const [hasNewAlert, setHasNewAlert] = useState(false);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const notificationsRef = useRef(null);
   const profileRef = useRef(null);
+  const prevCountRef = useRef(0);
 
-  const loadTheftAlerts = () => {
-    const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const todayDMY = `${pad(today.getDate())}-${pad(today.getMonth() + 1)}-${today.getFullYear()}`;
-    const todayYMD = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  // Trigger bell wobble and badge pulse when a new incident arrives
+  const notifyNewIncident = useCallback(() => {
+    setHasNewAlert(true);
+    setTimeout(() => setHasNewAlert(false), 2200);
+  }, []);
 
-    fetchDashboardRecord({ Date: todayYMD, StartDate: todayYMD, EndDate: todayYMD })
+  const handleIncomingDashboardData = useCallback((data) => {
+    if (!data) return;
+
+    // Case 1: Full dashboard update (has Summary, totalTags, theftAlerts, or incidents)
+    if (data.Summary || data.totalTags != null || data.theftAlerts != null || Array.isArray(data.incidents)) {
+      const incidentList = Array.isArray(data.incidents) ? data.incidents : [];
+      const currentDayAlerts = incidentList.filter((item) => isTodayIncident(item.date));
+      const finalAlerts = currentDayAlerts.length > 0 ? currentDayAlerts : incidentList;
+      setAlerts(finalAlerts);
+
+      const count = data.theftAlerts != null
+        ? Number(data.theftAlerts)
+        : finalAlerts.length;
+
+      if (count > prevCountRef.current && prevCountRef.current !== 0) {
+        notifyNewIncident();
+      }
+      prevCountRef.current = count;
+      setTheftCount(count);
+    }
+    // Case 2: Array of incidents
+    else if (Array.isArray(data)) {
+      const newAlerts = data.map(normalizeSingleIncident).filter(Boolean);
+      setAlerts((prev) => {
+        const existingEpcs = new Set(prev.map((a) => a.epc || a.id));
+        const unique = newAlerts.filter((a) => !existingEpcs.has(a.epc || a.id));
+        if (unique.length === 0) return prev;
+        notifyNewIncident();
+        const updated = [...unique, ...prev];
+        prevCountRef.current = updated.length;
+        setTheftCount(updated.length);
+        return updated;
+      });
+    }
+    // Case 3: Single incident (real-time gate alarm)
+    else if (data.EPC || data.EpcCode || data.ArticleDescription) {
+      const newAlert = normalizeSingleIncident(data);
+      if (newAlert) {
+        setAlerts((prev) => {
+          const exists = prev.some((a) => (a.epc && a.epc === newAlert.epc) || a.id === newAlert.id);
+          if (exists) return prev;
+          notifyNewIncident();
+          const updated = [newAlert, ...prev];
+          prevCountRef.current = updated.length;
+          setTheftCount(updated.length);
+          return updated;
+        });
+      }
+    }
+  }, [notifyNewIncident]);
+
+  const loadTheftAlerts = useCallback(() => {
+    fetchDashboardRecord()
       .then((data) => {
         if (data) {
-          const incidentList = Array.isArray(data.incidents) ? data.incidents : [];
-          // Strictly filter to current date notifications
-          const currentDayAlerts = incidentList.filter((item) => {
-            if (!item.date) return true;
-            const itemDate = String(item.date).trim();
-            if (itemDate === todayDMY || itemDate === todayYMD) return true;
-            if (itemDate.replace(/\//g, '-') === todayDMY || itemDate.replace(/\//g, '-') === todayYMD) return true;
-            const parsed = new Date(itemDate);
-            if (!isNaN(parsed.getTime())) {
-              return (
-                parsed.getDate() === today.getDate() &&
-                parsed.getMonth() === today.getMonth() &&
-                parsed.getFullYear() === today.getFullYear()
-              );
-            }
-            return false;
-          });
-
-          setAlerts(currentDayAlerts);
-          setTheftCount(currentDayAlerts.length);
+          handleIncomingDashboardData(data);
         }
       })
       .catch((err) => {
         console.error('Failed to load theft alerts in navbar:', err);
       });
-  };
+  }, [handleIncomingDashboardData]);
 
   useEffect(() => {
+    // 1. Initial snapshot fetch
     loadTheftAlerts();
 
-    // Subscribe to SSE live stream for real-time notification badge updates
-    const unsubscribe = subscribeToLiveStream(
+    // 2. Sync with any dashboard data fetched across the application
+    const unsubscribeSync = onDashboardSync((syncedData) => {
+      handleIncomingDashboardData(syncedData);
+    });
+
+    // 3. Direct SSE live stream subscription
+    const unsubscribeStream = subscribeToLiveStream(
       (liveData) => {
-        if (!liveData) return;
-        const today = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const todayDMY = `${pad(today.getDate())}-${pad(today.getMonth() + 1)}-${today.getFullYear()}`;
-        const todayYMD = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-
-        const isToday = (d) => {
-          if (!d) return true;
-          const str = String(d).trim();
-          if (str === todayDMY || str === todayYMD) return true;
-          if (str.replace(/\//g, '-') === todayDMY || str.replace(/\//g, '-') === todayYMD) return true;
-          const parsed = new Date(str);
-          if (!isNaN(parsed.getTime())) {
-            return (
-              parsed.getDate() === today.getDate() &&
-              parsed.getMonth() === today.getMonth() &&
-              parsed.getFullYear() === today.getFullYear()
-            );
-          }
-          return false;
-        };
-
-        // Case 1: Full dashboard update
-        if (liveData.incidents && Array.isArray(liveData.incidents)) {
-          const currentDayAlerts = liveData.incidents.filter((item) => isToday(item.date));
-          setAlerts(currentDayAlerts);
-          setTheftCount(currentDayAlerts.length);
-        }
-        // Case 2: Array of incidents
-        else if (Array.isArray(liveData)) {
-          const newAlerts = liveData.map(normalizeSingleIncident).filter(Boolean).filter((item) => isToday(item.date));
-          setAlerts((prev) => {
-            const existingIds = new Set(prev.map((a) => a.epc || a.id));
-            const unique = newAlerts.filter((a) => !existingIds.has(a.epc || a.id));
-            const updated = [...unique, ...prev];
-            setTheftCount(updated.length);
-            return updated;
-          });
-        }
-        // Case 3: Single incident
-        else if (liveData.EPC || liveData.EpcCode || liveData.ArticleDescription) {
-          const newAlert = normalizeSingleIncident(liveData);
-          if (newAlert && isToday(newAlert.date)) {
-            setAlerts((prev) => {
-              const exists = prev.some((a) => (a.epc && a.epc === newAlert.epc) || a.id === newAlert.id);
-              if (exists) return prev;
-              const updated = [newAlert, ...prev];
-              setTheftCount(updated.length);
-              return updated;
-            });
-          }
-        }
+        handleIncomingDashboardData(liveData);
       },
       (err) => {
         console.warn('Navbar live stream error/retry:', err);
@@ -131,9 +123,10 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
     );
 
     return () => {
-      unsubscribe();
+      unsubscribeSync();
+      unsubscribeStream();
     };
-  }, []);
+  }, [loadTheftAlerts, handleIncomingDashboardData]);
 
   // Close notifications or profile dropdown when clicking outside
   useEffect(() => {
@@ -192,12 +185,18 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                 loadTheftAlerts();
               }
             }}
-            className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-colors relative cursor-pointer shadow-2xs"
+            className={`w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-all relative cursor-pointer shadow-2xs ${
+              hasNewAlert ? 'ring-2 ring-rose-400 bg-rose-50/60' : ''
+            }`}
             title="Theft & Security Alerts"
           >
-            <Bell className="w-5 h-5 text-slate-700" />
+            <Bell className={`w-5 h-5 transition-transform ${hasNewAlert ? 'text-rose-600 animate-bounce' : 'text-slate-700'}`} />
             {/* Notification Badge - Positioned at corner without covering bell */}
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center ring-2 ring-white shadow-xs">
+            <span
+              className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center ring-2 ring-white shadow-xs transition-all duration-300 ${
+                hasNewAlert ? 'scale-125 bg-rose-600 ring-rose-300 animate-pulse' : ''
+              }`}
+            >
               {theftCount}
             </span>
           </button>

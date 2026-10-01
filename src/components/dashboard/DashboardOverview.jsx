@@ -10,6 +10,7 @@ import {
   subscribeToLiveStream,
   normalizeDashboardData,
   normalizeSingleIncident,
+  broadcastDashboardSync,
 } from '../../utils/dashboardApi';
 
 const DashboardOverview = () => {
@@ -100,6 +101,7 @@ const DashboardOverview = () => {
     const pad = (n) => String(n).padStart(2, '0');
     setLastSyncTime(`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`);
     setStreamStatus('connected');
+    broadcastDashboardSync(livePayload);
   }, []);
 
   useEffect(() => {

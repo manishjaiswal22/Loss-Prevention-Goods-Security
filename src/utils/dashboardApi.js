@@ -74,6 +74,80 @@ export function normalizeDashboardData(data) {
   };
 }
 
+export const DASHBOARD_SYNC_EVENT = 'loss-prevention:dashboard-sync';
+
+/**
+ * Broadcasts dashboard/theft update event across the entire application
+ * @param {Object} data Normalized dashboard data or live stream event
+ */
+export function broadcastDashboardSync(data) {
+  if (typeof window !== 'undefined' && data) {
+    try {
+      window.dispatchEvent(new CustomEvent(DASHBOARD_SYNC_EVENT, { detail: data }));
+    } catch (e) {
+      console.warn('Failed to broadcast dashboard sync event:', e);
+    }
+  }
+}
+
+/**
+ * Subscribes to global dashboard sync events
+ * @param {Function} callback Handler receiving synced data
+ * @returns {Function} Unsubscribe teardown
+ */
+export function onDashboardSync(callback) {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e) => {
+    if (e.detail && callback) {
+      callback(e.detail);
+    }
+  };
+  window.addEventListener(DASHBOARD_SYNC_EVENT, handler);
+  return () => window.removeEventListener(DASHBOARD_SYNC_EVENT, handler);
+}
+
+/**
+ * Checks whether an incident date belongs to today's date
+ * Handles formats like '01 Oct 2026', '2026-10-01', '01-10-2026', ISO strings, etc.
+ * @param {string} dateStr 
+ * @returns {boolean}
+ */
+export function isTodayIncident(dateStr) {
+  if (!dateStr) return true;
+  const str = String(dateStr).trim();
+  if (!str) return true;
+
+  const today = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = pad(today.getDate());
+  const m = pad(today.getMonth() + 1);
+  const y = String(today.getFullYear());
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthName = months[today.getMonth()].toLowerCase();
+
+  const lower = str.toLowerCase();
+  // Check if contains current month name (e.g. "01 Oct 2026" or "1 oct")
+  if (lower.includes(monthName) && (lower.includes(d) || lower.includes(String(today.getDate())))) {
+    return true;
+  }
+
+  // Check numeric dates like 01-10-2026, 2026-10-01, 01/10/2026
+  const cleaned = str.replace(/[\/\.]/g, '-');
+  if (cleaned.includes(`${d}-${m}`) || cleaned.includes(`${m}-${d}`) || cleaned.includes(`${y}-${m}-${d}`)) {
+    return true;
+  }
+
+  // Safe Date parsing with UTC and local matching
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const localMatch = parsed.getDate() === today.getDate() && parsed.getMonth() === today.getMonth();
+    const utcMatch = parsed.getUTCDate() === today.getDate() && parsed.getUTCMonth() === today.getMonth();
+    return localMatch || utcMatch;
+  }
+
+  return true;
+}
+
 /**
  * Fetch today's dashboard overview cards data from /api/todayDashboard
  * @param {Object} payload Optional request payload
@@ -94,7 +168,11 @@ export async function fetchDashboardRecord(payload = {}) {
     }
 
     let data = await response.json();
-    return normalizeDashboardData(data);
+    const normalized = normalizeDashboardData(data);
+    if (normalized) {
+      broadcastDashboardSync(normalized);
+    }
+    return normalized;
   } catch (error) {
     console.error('Error fetching today dashboard data:', error);
     throw error;
@@ -149,70 +227,78 @@ export function normalizeSingleIncident(inc, index = 0) {
  * @returns {Function} Teardown unsubscribe function
  */
 export function subscribeToLiveStream(onMessage, onError, onStatusChange) {
-  if (typeof window === 'undefined' || !window.EventSource) {
-    console.warn('EventSource is not supported in this browser environment');
+  if (typeof window === 'undefined') {
     if (onStatusChange) onStatusChange('disconnected');
     return () => {};
   }
 
-  const streamUrl = import.meta.env.DEV
-    ? '/api/liveStream'
-    : (import.meta.env?.VITE_LIVE_STREAM_URL || `${API_BASE_URL}/api/liveStream`);
+  const checkUrl = import.meta.env.DEV
+    ? '/api/liveCheck'
+    : (import.meta.env?.VITE_LIVE_CHECK_URL || `${API_BASE_URL}/api/liveCheck`);
 
-  let eventSource = null;
+  let lastMaxTagId = 0;
+  let isChecking = false;
+  let isMounted = true;
 
-  try {
-    if (onStatusChange) onStatusChange('connecting');
-    eventSource = new EventSource(streamUrl);
+  if (onStatusChange) onStatusChange('connecting');
 
-    // Connected successfully
-    eventSource.onopen = () => {
+  const dispatchMessage = (data) => {
+    try {
+      if (onMessage) onMessage(data);
+      if (typeof broadcastDashboardSync === 'function') {
+        broadcastDashboardSync(data);
+      }
       if (onStatusChange) onStatusChange('connected');
-    };
+    } catch (err) {
+      console.warn('Error handling live sync:', err);
+    }
+  };
 
-    const dispatchMessage = (rawData) => {
-      try {
-        if (!rawData) return;
-        const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-        if (onMessage) {
-          onMessage(parsed);
-        }
-        if (onStatusChange) onStatusChange('connected');
-      } catch (err) {
-        console.warn('Error parsing live stream SSE message:', err);
+  const checkLiveUpdates = async () => {
+    if (!isMounted || isChecking) return;
+    isChecking = true;
+
+    try {
+      const response = await fetch(`${checkUrl}?lastMaxTagId=${lastMaxTagId}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const result = await response.json();
+
+      if (!isMounted) return;
+
+      if (onStatusChange) onStatusChange('connected');
+
+      
+      if (lastMaxTagId === 0) {
+        lastMaxTagId = result.maxTagId;
+        dispatchMessage({ event: 'connected', maxTagId: result.maxTagId });
+      } 
+      
+      else if (result.hasNew || result.maxTagId > lastMaxTagId) {
+        lastMaxTagId = result.maxTagId;
+        dispatchMessage({
+          event: 'new_record',
+          maxTagId: result.maxTagId,
+          timestamp: result.timestamp
+        });
       }
-    };
-
-    // Standard SSE message handler
-    eventSource.onmessage = (event) => {
-      dispatchMessage(event.data);
-    };
-
-    // Named event listeners (if backend emits custom event names)
-    eventSource.addEventListener('dashboardUpdate', (event) => dispatchMessage(event.data));
-    eventSource.addEventListener('theftAlert', (event) => dispatchMessage(event.data));
-    eventSource.addEventListener('liveUpdate', (event) => dispatchMessage(event.data));
-
-    eventSource.onerror = (err) => {
-      if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
-        // EventSource is automatically attempting reconnection
-        if (onStatusChange) onStatusChange('connecting');
-      } else {
+    } catch (err) {
+      if (isMounted) {
         if (onStatusChange) onStatusChange('disconnected');
+        if (onError) onError(err);
       }
-      if (onError) onError(err);
-    };
-  } catch (err) {
-    console.error('Failed to initialize EventSource for liveStream:', err);
-    if (onStatusChange) onStatusChange('disconnected');
-    if (onError) onError(err);
-  }
+    } finally {
+      isChecking = false;
+    }
+  };
+
+  checkLiveUpdates();
+
+  const intervalId = setInterval(checkLiveUpdates, 2500);
 
   return () => {
-    if (eventSource) {
-      eventSource.close();
-      eventSource = null;
-    }
+    isMounted = false;
+    clearInterval(intervalId);
     if (onStatusChange) onStatusChange('disconnected');
   };
 }
