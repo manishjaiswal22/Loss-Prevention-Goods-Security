@@ -21,6 +21,7 @@ const formatApiDate = (date) => {
 
 const AnalyticsView = () => {
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const todayStr = formatApiDate(new Date());
   const [datePayload, setDatePayload] = useState({
     StartDate: todayStr,
@@ -40,11 +41,14 @@ const AnalyticsView = () => {
     setLoading(true);
     try {
       const data = await fetchAnalyticsDashboard(payload);
-      setMetrics(data);
+      if (data) {
+        setMetrics(data);
+      }
     } catch (error) {
       console.error('Failed to load analytics dashboard metrics:', error);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   }, []);
 
@@ -58,6 +62,8 @@ const AnalyticsView = () => {
         }
       } catch (error) {
         console.error('Failed to load analytics dashboard metrics:', error);
+      } finally {
+        if (!ignore) setInitialLoading(false);
       }
     })();
 
@@ -151,28 +157,32 @@ const AnalyticsView = () => {
           count={metrics.totalTags}
           icon={Tag}
           variant="green"
-          loading={loading}
+          loading={initialLoading}
+          shimmer={loading}
         />
         <StatCard
           title="Untagged"
           count={metrics.untagged}
           icon={TagX}
           variant="blue"
-          loading={loading}
+          loading={initialLoading}
+          shimmer={loading}
         />
         <StatCard
           title="Theft Alerts"
           count={metrics.theftAlerts}
           icon={AlertTriangle}
           variant="gray"
-          loading={loading}
+          loading={initialLoading}
+          shimmer={loading}
         />
         <StatCard
           title="Potential Loss"
           count={metrics.potentialLoss}
           icon={TrendingDown}
           variant="rose"
-          loading={loading}
+          loading={initialLoading}
+          shimmer={loading}
         />
       </div>
 

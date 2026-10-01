@@ -75,11 +75,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               onClick={handleNavClick}
               className={({ isActive }) =>
                 isCollapsed
-                  ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer ${isActive
+                  ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-tr from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/35 ring-2 ring-[#00a8e7]/20'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
-                  : `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer ${isActive
+                  : `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-r from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/30 font-semibold'
                     : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
                   }`
@@ -102,11 +102,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               onClick={handleNavClick}
               className={({ isActive }) =>
                 isCollapsed
-                  ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer ${isActive
+                  ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-tr from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/35 ring-2 ring-[#00a8e7]/20'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
-                  : `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer ${isActive
+                  : `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-r from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/30 font-semibold'
                     : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
                   }`
@@ -129,11 +129,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               onClick={handleNavClick}
               className={({ isActive }) =>
                 isCollapsed
-                  ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer ${isActive
+                  ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-tr from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/35 ring-2 ring-[#00a8e7]/20'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
                   }`
-                  : `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer ${isActive
+                  : `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-r from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/30 font-semibold'
                     : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
                   }`

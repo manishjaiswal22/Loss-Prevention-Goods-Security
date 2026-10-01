@@ -18,6 +18,10 @@ const DashboardOverview = () => {
   const [streamStatus, setStreamStatus] = useState('connecting'); // 'connecting' | 'connected' | 'disconnected'
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const selectedStoreRef = useRef('');
+  const prevIncidentsRef = useRef([]);
+  const [blinkingIncidentId, setBlinkingIncidentId] = useState(null);
+  const blinkingTimerRef = useRef(null);
+
   const [metrics, setMetrics] = useState({
     date: null,
     totalTags: '0',
@@ -27,13 +31,52 @@ const DashboardOverview = () => {
     incidents: []
   });
 
+  const isInitialMountRef = useRef(true);
+
+  // Blinks the latest incident card for 10 seconds
+  const triggerBlinkForIncident = useCallback((incidentId) => {
+    if (!incidentId) return;
+    setBlinkingIncidentId(incidentId);
+    if (blinkingTimerRef.current) {
+      clearTimeout(blinkingTimerRef.current);
+    }
+    blinkingTimerRef.current = setTimeout(() => {
+      setBlinkingIncidentId(null);
+    }, 10000); // 10 seconds
+  }, []);
+
   // Central data loader: loads snapshot from todayDashboard for selected store
-  const loadData = useCallback(async (storeId = selectedStoreRef.current) => {
+  const loadData = useCallback(async (storeId = selectedStoreRef.current, forceBlink = false) => {
     try {
       const payload = storeId ? { StoreId: storeId } : {};
       const data = await fetchDashboardRecord(payload);
       if (data) {
-        setMetrics(data);
+        let incidentList = Array.isArray(data.incidents) ? [...data.incidents] : [];
+
+        // Identify newly added incidents compared to previous snapshot
+        const prevIds = new Set(prevIncidentsRef.current.map((i) => i.id || i.epc));
+        const newlyAdded = incidentList.filter((i) => !prevIds.has(i.id || i.epc));
+
+        const shouldBlink = forceBlink || (
+          !isInitialMountRef.current && (
+            newlyAdded.length > 0 ||
+            incidentList.length > prevIncidentsRef.current.length
+          )
+        );
+
+        if (shouldBlink && incidentList.length > 0) {
+          // Put the newest incident at index 0 (1st place)
+          const latestItem = newlyAdded.length > 0 ? newlyAdded[0] : incidentList[0];
+          incidentList = [
+            latestItem,
+            ...incidentList.filter((i) => (i.id || i.epc) !== (latestItem.id || latestItem.epc)),
+          ];
+          triggerBlinkForIncident(latestItem.id);
+        }
+
+        isInitialMountRef.current = false;
+        prevIncidentsRef.current = incidentList;
+        setMetrics({ ...data, incidents: incidentList });
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         setLastSyncTime(`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`);
@@ -41,39 +84,69 @@ const DashboardOverview = () => {
     } catch (error) {
       console.error('Failed to load dashboard metrics:', error);
     }
-  }, []);
+  }, [triggerBlinkForIncident]);
 
   // Real-time Live Stream processor: instantly updates UI without refreshing or calling todayDashboard
   const handleLiveStreamData = useCallback((livePayload) => {
     if (!livePayload) return;
 
+    // Handle new_record event from liveCheck
+    if (livePayload.event === 'new_record' || livePayload.hasNew) {
+      loadData(selectedStoreRef.current, true);
+      return;
+    }
+
     // Case 1: Full dashboard update (has Summary, TotalTags, or SecurityIncidents)
     if (livePayload.Summary || livePayload.TotalTags != null || livePayload.SecurityIncidents || livePayload.Incidents) {
       const normalized = normalizeDashboardData(livePayload);
       if (normalized) {
-        setMetrics(normalized);
+        let incidentList = Array.isArray(normalized.incidents) ? [...normalized.incidents] : [];
+        const prevIds = new Set(prevIncidentsRef.current.map((i) => i.id || i.epc));
+        const newlyAdded = incidentList.filter((i) => !prevIds.has(i.id || i.epc));
+
+        const shouldBlink = !isInitialMountRef.current && (
+          newlyAdded.length > 0 ||
+          incidentList.length > prevIncidentsRef.current.length
+        );
+
+        if (shouldBlink && incidentList.length > 0) {
+          const latestItem = newlyAdded.length > 0 ? newlyAdded[0] : incidentList[0];
+          incidentList = [
+            latestItem,
+            ...incidentList.filter((i) => (i.id || i.epc) !== (latestItem.id || latestItem.epc)),
+          ];
+          triggerBlinkForIncident(latestItem.id);
+        }
+
+        prevIncidentsRef.current = incidentList;
+        setMetrics({ ...normalized, incidents: incidentList });
       }
     }
     // Case 2: Array of incidents pushed in real time
     else if (Array.isArray(livePayload)) {
       const newIncidents = livePayload.map(normalizeSingleIncident).filter(Boolean);
-      setMetrics((prev) => {
-        const existingEpcs = new Set(prev.incidents.map((i) => i.epc || i.id));
-        const uniqueNew = newIncidents.filter((i) => !existingEpcs.has(i.epc || i.id));
-        if (uniqueNew.length === 0) return prev;
+      if (newIncidents.length > 0) {
+        const latestItem = newIncidents[0];
+        setMetrics((prev) => {
+          const existingEpcs = new Set(prev.incidents.map((i) => i.epc || i.id));
+          const uniqueNew = newIncidents.filter((i) => !existingEpcs.has(i.epc || i.id));
+          if (uniqueNew.length === 0) return prev;
 
-        const combined = [...uniqueNew, ...prev.incidents];
-        const addedLoss = uniqueNew.reduce((sum, item) => sum + (item.amount || 0), 0);
-        const prevLossNum = Number(String(prev.potentialLoss || 0).replace(/[₹,\s]/g, '')) || 0;
+          // Put latest incident at 1st place
+          const combined = [...uniqueNew, ...prev.incidents];
+          const addedLoss = uniqueNew.reduce((sum, item) => sum + (item.amount || 0), 0);
+          const prevLossNum = Number(String(prev.potentialLoss || 0).replace(/[₹,\s]/g, '')) || 0;
 
-        return {
-          ...prev,
-          theftAlerts: String(Number(prev.theftAlerts || 0) + uniqueNew.length),
-          totalTags: String(Number(prev.totalTags || 0) + uniqueNew.length),
-          potentialLoss: `₹${(prevLossNum + addedLoss).toLocaleString('en-IN')}`,
-          incidents: combined,
-        };
-      });
+          return {
+            ...prev,
+            theftAlerts: String(Number(prev.theftAlerts || 0) + uniqueNew.length),
+            totalTags: String(Number(prev.totalTags || 0) + uniqueNew.length),
+            potentialLoss: `₹${(prevLossNum + addedLoss).toLocaleString('en-IN')}`,
+            incidents: combined,
+          };
+        });
+        triggerBlinkForIncident(latestItem.id);
+      }
     }
     // Case 3: Single incident pushed in real time (RFID gate alarm event)
     else if (livePayload.EPC || livePayload.EpcCode || livePayload.ArticleDescription || livePayload.ArticleNo) {
@@ -83,6 +156,7 @@ const DashboardOverview = () => {
           const exists = prev.incidents.some((i) => (i.epc && i.epc === newInc.epc) || i.id === newInc.id);
           if (exists) return prev;
 
+          // Put new incident at 1st place
           const updatedIncidents = [newInc, ...prev.incidents];
           const prevLossNum = Number(String(prev.potentialLoss || 0).replace(/[₹,\s]/g, '')) || 0;
 
@@ -94,6 +168,7 @@ const DashboardOverview = () => {
             incidents: updatedIncidents,
           };
         });
+        triggerBlinkForIncident(newInc.id);
       }
     }
 
@@ -102,7 +177,7 @@ const DashboardOverview = () => {
     setLastSyncTime(`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`);
     setStreamStatus('connected');
     broadcastDashboardSync(livePayload);
-  }, []);
+  }, [loadData, triggerBlinkForIncident]);
 
   useEffect(() => {
     let ignore = false;
@@ -123,9 +198,6 @@ const DashboardOverview = () => {
       (status) => {
         if (!ignore) {
           setStreamStatus(status);
-          if (status === 'connected') {
-            loadData();
-          }
         }
       }
     );
@@ -320,6 +392,7 @@ const DashboardOverview = () => {
                   status={item.status}
                   variant="theft"
                   loading={loading}
+                  isLatest={item.id === blinkingIncidentId}
                 />
               ))
             ) : (

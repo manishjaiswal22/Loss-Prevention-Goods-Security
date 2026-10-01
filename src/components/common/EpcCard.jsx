@@ -16,6 +16,7 @@ export default function EpcCard({
   status,
   loading = false,
   className = '',
+  isLatest = false,
 }) {
   const desc = articleDescription || title || 'Untitled Article';
   const artNo = articleNo || articleNumber || 'N/A';
@@ -65,10 +66,14 @@ export default function EpcCard({
   // 2. Active Compact EpcCard
   return (
     <div
-      className={`group relative w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer ${
+      className={`group relative w-full rounded-xl px-3.5 py-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer ${
+        isLatest
+          ? 'border border-rose-300 animate-theft-blink'
+          : 'bg-white border border-slate-300'
+      } ${
         isTheft
-          ? 'border-l-2 border-l-rose-500 hover:border-rose-400'
-          : 'border-l-2 border-l-[#00a8e7] hover:border-sky-400'
+          ? 'border-l-4 border-l-rose-500 hover:border-rose-400'
+          : 'border-l-4 border-l-[#00a8e7] hover:border-sky-400'
       } ${className}`}
     >
       {/* Row 1: Article Description on left, Status chip on right */}
@@ -77,20 +82,31 @@ export default function EpcCard({
           {desc}
         </h4>
 
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
-            isTheft
-              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-              : 'bg-sky-50 text-sky-700 border border-sky-200'
-          }`}
-        >
-          {isTheft ? (
-            <AlertTriangle className="w-2.5 h-2.5 text-rose-500 shrink-0" />
-          ) : (
-            <TagX className="w-2.5 h-2.5 text-sky-500 shrink-0" />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isLatest && (
+            <span className="shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide bg-rose-50 text-rose-700 border border-rose-200/90 shadow-2xs">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+              </span>
+              Latest Theft
+            </span>
           )}
-          <span>{status || (isTheft ? 'Theft Alert' : 'Tag Not Removed')}</span>
-        </span>
+          <span
+            className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
+              isTheft
+                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                : 'bg-sky-50 text-sky-700 border border-sky-200'
+            }`}
+          >
+            {isTheft ? (
+              <AlertTriangle className="w-2.5 h-2.5 text-rose-500 shrink-0" />
+            ) : (
+              <TagX className="w-2.5 h-2.5 text-sky-500 shrink-0" />
+            )}
+            <span>{status || (isTheft ? 'Theft Alert' : 'Tag Not Removed')}</span>
+          </span>
+        </div>
       </div>
 
       {/* Row 2: Article No & EPC on left, Amount on right */}

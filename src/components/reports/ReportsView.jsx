@@ -48,6 +48,7 @@ const ReportsView = () => {
     };
   });
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEventType, setSelectedEventType] = useState('All'); // 'All' | 'Theft' | 'Untagged'
   const [reportData, setReportData] = useState({
@@ -119,6 +120,7 @@ const ReportsView = () => {
         console.error('Failed to load incident report:', error);
       } finally {
         setLoading(false);
+        setInitialLoading(false);
       }
     },
     [selectedStore, dateRange.fromDate, dateRange.toDate, currentPage, rowsPerPage, selectedEventType, searchQuery]
@@ -604,21 +606,24 @@ const ReportsView = () => {
           count={(reportData.totalTags ?? reportData.totalAll ?? 0).toLocaleString('en-IN')}
           icon={Tag}
           variant="green"
-          loading={loading && reportData.totalRecords === undefined}
+          loading={initialLoading}
+          shimmer={loading}
         />
         <StatCard
           title="Untagged"
           count={(reportData.untagged ?? reportData.totalUntagged ?? 0).toLocaleString('en-IN')}
           icon={TagX}
           variant="blue"
-          loading={loading && reportData.totalRecords === undefined}
+          loading={initialLoading}
+          shimmer={loading}
         />
         <StatCard
           title="Theft Alerts"
           count={(reportData.theftAlerts ?? reportData.totalTheft ?? 0).toLocaleString('en-IN')}
           icon={AlertTriangle}
           variant="gray"
-          loading={loading && reportData.totalRecords === undefined}
+          loading={initialLoading}
+          shimmer={loading}
         />
         <StatCard
           title="Potential Loss"
@@ -635,7 +640,8 @@ const ReportsView = () => {
           }
           icon={TrendingDown}
           variant="rose"
-          loading={loading && reportData.totalRecords === undefined}
+          loading={initialLoading}
+          shimmer={loading}
         />
       </div>
 

@@ -1,5 +1,4 @@
 /**
- * Format currency with ₹ symbol and Indian numbering format
  * @param {string|number} val 
  * @returns {string}
  */
@@ -20,7 +19,6 @@ export function formatCurrency(val) {
   return '₹0';
 }
 
-// In development mode, always route via Vite proxy ('/api') to avoid browser CORS errors
 const API_BASE_URL = import.meta.env.DEV
   ? ''
   : (import.meta.env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
@@ -219,9 +217,70 @@ export function normalizeSingleIncident(inc, index = 0) {
   };
 }
 
+let liveSubscribers = new Set();
+let livePollInterval = null;
+let lastMaxTagId = 0;
+let isCheckingLive = false;
+let currentLiveStatus = 'connecting';
+
+function broadcastToSubscribers(type, data) {
+  liveSubscribers.forEach((sub) => {
+    try {
+      if (type === 'message' && sub.onMessage) sub.onMessage(data);
+      if (type === 'status' && sub.onStatusChange) sub.onStatusChange(data);
+      if (type === 'error' && sub.onError) sub.onError(data);
+    } catch (e) {
+      console.warn('Error in live stream subscriber callback:', e);
+    }
+  });
+}
+
+async function pollLiveCheck() {
+  if (liveSubscribers.size === 0 || isCheckingLive) return;
+  isCheckingLive = true;
+
+  const checkUrl = import.meta.env.DEV
+    ? '/api/liveCheck'
+    : (import.meta.env?.VITE_LIVE_CHECK_URL || `${API_BASE_URL}/api/liveCheck`);
+
+  try {
+    const response = await fetch(`${checkUrl}?lastMaxTagId=${lastMaxTagId}`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const result = await response.json();
+
+    if (currentLiveStatus !== 'connected') {
+      currentLiveStatus = 'connected';
+      broadcastToSubscribers('status', 'connected');
+    }
+
+    if (lastMaxTagId === 0) {
+      lastMaxTagId = result.maxTagId;
+      broadcastToSubscribers('message', { event: 'connected', maxTagId: result.maxTagId });
+    } else if (result.hasNew || result.maxTagId > lastMaxTagId) {
+      lastMaxTagId = result.maxTagId;
+      const eventData = {
+        event: 'new_record',
+        maxTagId: result.maxTagId,
+        timestamp: result.timestamp || new Date().toISOString(),
+      };
+      broadcastToSubscribers('message', eventData);
+      broadcastDashboardSync(eventData);
+    }
+  } catch (err) {
+    if (currentLiveStatus !== 'disconnected') {
+      currentLiveStatus = 'disconnected';
+      broadcastToSubscribers('status', 'disconnected');
+    }
+    broadcastToSubscribers('error', err);
+  } finally {
+    isCheckingLive = false;
+  }
+}
+
 /**
- * Subscribes to real-time Server-Sent Events (SSE) live stream from /api/liveStream
- * @param {Function} onMessage Callback invoked with live data (full dashboard, single incident, or incident array)
+ * Subscribes to real-time live updates from /api/liveCheck
+ * Uses a single shared poll loop for all components to ensure perfect synchronization
+ * @param {Function} onMessage Callback invoked with live data or liveCheck event
  * @param {Function} onError Optional error callback
  * @param {Function} onStatusChange Optional callback receiving 'connecting' | 'connected' | 'disconnected'
  * @returns {Function} Teardown unsubscribe function
@@ -232,74 +291,24 @@ export function subscribeToLiveStream(onMessage, onError, onStatusChange) {
     return () => {};
   }
 
-  const checkUrl = import.meta.env.DEV
-    ? '/api/liveCheck'
-    : (import.meta.env?.VITE_LIVE_CHECK_URL || `${API_BASE_URL}/api/liveCheck`);
+  const sub = { onMessage, onError, onStatusChange };
+  liveSubscribers.add(sub);
 
-  let lastMaxTagId = 0;
-  let isChecking = false;
-  let isMounted = true;
+  if (onStatusChange) {
+    onStatusChange(currentLiveStatus);
+  }
 
-  if (onStatusChange) onStatusChange('connecting');
-
-  const dispatchMessage = (data) => {
-    try {
-      if (onMessage) onMessage(data);
-      if (typeof broadcastDashboardSync === 'function') {
-        broadcastDashboardSync(data);
-      }
-      if (onStatusChange) onStatusChange('connected');
-    } catch (err) {
-      console.warn('Error handling live sync:', err);
-    }
-  };
-
-  const checkLiveUpdates = async () => {
-    if (!isMounted || isChecking) return;
-    isChecking = true;
-
-    try {
-      const response = await fetch(`${checkUrl}?lastMaxTagId=${lastMaxTagId}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const result = await response.json();
-
-      if (!isMounted) return;
-
-      if (onStatusChange) onStatusChange('connected');
-
-      
-      if (lastMaxTagId === 0) {
-        lastMaxTagId = result.maxTagId;
-        dispatchMessage({ event: 'connected', maxTagId: result.maxTagId });
-      } 
-      
-      else if (result.hasNew || result.maxTagId > lastMaxTagId) {
-        lastMaxTagId = result.maxTagId;
-        dispatchMessage({
-          event: 'new_record',
-          maxTagId: result.maxTagId,
-          timestamp: result.timestamp
-        });
-      }
-    } catch (err) {
-      if (isMounted) {
-        if (onStatusChange) onStatusChange('disconnected');
-        if (onError) onError(err);
-      }
-    } finally {
-      isChecking = false;
-    }
-  };
-
-  checkLiveUpdates();
-
-  const intervalId = setInterval(checkLiveUpdates, 2500);
+  if (!livePollInterval) {
+    pollLiveCheck();
+    livePollInterval = setInterval(pollLiveCheck, 2500);
+  }
 
   return () => {
-    isMounted = false;
-    clearInterval(intervalId);
-    if (onStatusChange) onStatusChange('disconnected');
+    liveSubscribers.delete(sub);
+    if (liveSubscribers.size === 0 && livePollInterval) {
+      clearInterval(livePollInterval);
+      livePollInterval = null;
+    }
   };
 }
 
@@ -320,7 +329,6 @@ export async function fetchAnalyticsDashboard(payload = {}) {
       body.EndDate = endDate;
       body.FromDate = startDate;
       body.ToDate = endDate;
-      // Do not pass Preset when date range is selected
       delete body.Preset;
     }
 
@@ -392,7 +400,6 @@ export async function fetchIncidentReport(payload = {}) {
       body.StoreCode = payload.StoreCode || payload.StoreId;
     }
 
-    // Do not pass Preset
     delete body.Preset;
 
     const response = await fetch(`${API_BASE_URL}/api/incidentReport`, {

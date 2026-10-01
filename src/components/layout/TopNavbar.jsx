@@ -24,50 +24,113 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
   const [alerts, setAlerts] = useState([]);
   const [theftCount, setTheftCount] = useState(0);
   const [hasNewAlert, setHasNewAlert] = useState(false);
+  const [isBlinkingBadge, setIsBlinkingBadge] = useState(false);
+  const [blinkingAlertId, setBlinkingAlertId] = useState(null);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
   const notificationsRef = useRef(null);
   const profileRef = useRef(null);
   const prevCountRef = useRef(0);
+  const prevAlertIdsRef = useRef([]);
+  const badgeTimerRef = useRef(null);
 
-  // Trigger bell wobble and badge pulse when a new incident arrives
-  const notifyNewIncident = useCallback(() => {
+  const isInitialMountRef = useRef(true);
+
+  // Trigger bell wobble and 10-second badge blinking
+  const triggerNotificationBlink = useCallback((latestId) => {
     setHasNewAlert(true);
-    setTimeout(() => setHasNewAlert(false), 2200);
+    setIsBlinkingBadge(true);
+    if (latestId) setBlinkingAlertId(latestId);
+
+    if (badgeTimerRef.current) {
+      clearTimeout(badgeTimerRef.current);
+    }
+    // Blink count for 10s
+    badgeTimerRef.current = setTimeout(() => {
+      setHasNewAlert(false);
+      setIsBlinkingBadge(false);
+      setBlinkingAlertId(null);
+    }, 10000);
   }, []);
 
-  const handleIncomingDashboardData = useCallback((data) => {
+  const loadTheftAlerts = useCallback((forceBlink = false) => {
+    fetchDashboardRecord()
+      .then((data) => {
+        if (data) {
+          handleIncomingDashboardData(data, forceBlink);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load theft alerts in navbar:', err);
+      });
+  }, []);
+
+  const handleIncomingDashboardData = useCallback((data, forceBlink = false) => {
     if (!data) return;
+
+    // Handle new_record event from liveCheck
+    if (data.event === 'new_record' || data.hasNew) {
+      loadTheftAlerts(true);
+      return;
+    }
 
     // Case 1: Full dashboard update (has Summary, totalTags, theftAlerts, or incidents)
     if (data.Summary || data.totalTags != null || data.theftAlerts != null || Array.isArray(data.incidents)) {
-      const incidentList = Array.isArray(data.incidents) ? data.incidents : [];
+      const incidentList = Array.isArray(data.incidents) ? [...data.incidents] : [];
       const currentDayAlerts = incidentList.filter((item) => isTodayIncident(item.date));
-      const finalAlerts = currentDayAlerts.length > 0 ? currentDayAlerts : incidentList;
-      setAlerts(finalAlerts);
+      let finalAlerts = currentDayAlerts.length > 0 ? currentDayAlerts : incidentList;
+
+      // Identify newly arrived alerts
+      const prevIds = new Set(prevAlertIdsRef.current);
+      const newlyAdded = finalAlerts.filter((item) => !prevIds.has(item.id || item.epc));
 
       const count = data.theftAlerts != null
-        ? Number(data.theftAlerts)
+        ? Number(String(data.theftAlerts).replace(/[^\d]/g, ''))
         : finalAlerts.length;
 
-      if (count > prevCountRef.current && prevCountRef.current !== 0) {
-        notifyNewIncident();
+      const shouldBlink = forceBlink || (
+        !isInitialMountRef.current && (
+          newlyAdded.length > 0 ||
+          count > prevCountRef.current ||
+          finalAlerts.length > prevAlertIdsRef.current.length
+        )
+      );
+
+      if (shouldBlink && finalAlerts.length > 0) {
+        const latestItem = newlyAdded.length > 0 ? newlyAdded[0] : finalAlerts[0];
+        // Put the newest incident at index 0 (top of notifications)
+        finalAlerts = [
+          latestItem,
+          ...finalAlerts.filter((i) => (i.id || i.epc) !== (latestItem.id || latestItem.epc)),
+        ];
+        triggerNotificationBlink(latestItem.id);
+      } else if (shouldBlink && count > 0) {
+        triggerNotificationBlink();
       }
+
+      isInitialMountRef.current = false;
+      prevAlertIdsRef.current = finalAlerts.map((i) => i.id || i.epc);
       prevCountRef.current = count;
+      setAlerts(finalAlerts);
       setTheftCount(count);
     }
     // Case 2: Array of incidents
     else if (Array.isArray(data)) {
       const newAlerts = data.map(normalizeSingleIncident).filter(Boolean);
-      setAlerts((prev) => {
-        const existingEpcs = new Set(prev.map((a) => a.epc || a.id));
-        const unique = newAlerts.filter((a) => !existingEpcs.has(a.epc || a.id));
-        if (unique.length === 0) return prev;
-        notifyNewIncident();
-        const updated = [...unique, ...prev];
-        prevCountRef.current = updated.length;
-        setTheftCount(updated.length);
-        return updated;
-      });
+      if (newAlerts.length > 0) {
+        const latestItem = newAlerts[0];
+        setAlerts((prev) => {
+          const existingEpcs = new Set(prev.map((a) => a.epc || a.id));
+          const unique = newAlerts.filter((a) => !existingEpcs.has(a.epc || a.id));
+          if (unique.length === 0) return prev;
+          // Put latest at index 0 (top)
+          const updated = [...unique, ...prev];
+          prevAlertIdsRef.current = updated.map((i) => i.id || i.epc);
+          prevCountRef.current = updated.length;
+          setTheftCount(updated.length);
+          triggerNotificationBlink(latestItem.id);
+          return updated;
+        });
+      }
     }
     // Case 3: Single incident (real-time gate alarm)
     else if (data.EPC || data.EpcCode || data.ArticleDescription) {
@@ -76,27 +139,17 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         setAlerts((prev) => {
           const exists = prev.some((a) => (a.epc && a.epc === newAlert.epc) || a.id === newAlert.id);
           if (exists) return prev;
-          notifyNewIncident();
+          // Put latest at index 0 (top)
           const updated = [newAlert, ...prev];
+          prevAlertIdsRef.current = updated.map((i) => i.id || i.epc);
           prevCountRef.current = updated.length;
           setTheftCount(updated.length);
+          triggerNotificationBlink(newAlert.id);
           return updated;
         });
       }
     }
-  }, [notifyNewIncident]);
-
-  const loadTheftAlerts = useCallback(() => {
-    fetchDashboardRecord()
-      .then((data) => {
-        if (data) {
-          handleIncomingDashboardData(data);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load theft alerts in navbar:', err);
-      });
-  }, [handleIncomingDashboardData]);
+  }, [triggerNotificationBlink, loadTheftAlerts]);
 
   useEffect(() => {
     // 1. Initial snapshot fetch
@@ -107,7 +160,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
       handleIncomingDashboardData(syncedData);
     });
 
-    // 3. Direct SSE live stream subscription
+    // 3. Direct SSE / live check subscription
     const unsubscribeStream = subscribeToLiveStream(
       (liveData) => {
         handleIncomingDashboardData(liveData);
@@ -116,9 +169,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         console.warn('Navbar live stream error/retry:', err);
       },
       (status) => {
-        if (status === 'connected') {
-          loadTheftAlerts();
-        }
+        // Status updates tracked silently
       }
     );
 
@@ -154,7 +205,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         {/* Toggle Sidebar Button */}
         <button
           onClick={onToggleSidebar}
-          className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200 cursor-pointer shrink-0 active:scale-95"
+          className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all duration-200 cursor-pointer shrink-0 active:scale-95 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none"
           title="Toggle Sidebar (Mini / Expanded)"
           aria-label="Toggle Navigation Sidebar"
         >
@@ -185,16 +236,16 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                 loadTheftAlerts();
               }
             }}
-            className={`w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-all relative cursor-pointer shadow-2xs ${
-              hasNewAlert ? 'ring-2 ring-rose-400 bg-rose-50/60' : ''
+            className={`w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-all relative cursor-pointer shadow-2xs outline-none focus:outline-none focus:ring-0 focus-visible:outline-none ${
+              isBlinkingBadge ? 'border-rose-300 bg-rose-50/40' : ''
             }`}
             title="Theft & Security Alerts"
           >
-            <Bell className={`w-5 h-5 transition-transform ${hasNewAlert ? 'text-rose-600 animate-bounce' : 'text-slate-700'}`} />
-            {/* Notification Badge - Positioned at corner without covering bell */}
+            <Bell className={`w-5 h-5 transition-colors ${isBlinkingBadge ? 'text-rose-600' : 'text-slate-700'}`} />
+            {/* Notification Badge - Positioned at corner without covering bell, blinks for 10s */}
             <span
               className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-extrabold text-[10px] rounded-full flex items-center justify-center ring-2 ring-white shadow-xs transition-all duration-300 ${
-                hasNewAlert ? 'scale-125 bg-rose-600 ring-rose-300 animate-pulse' : ''
+                isBlinkingBadge ? 'animate-badge-blink' : ''
               }`}
             >
               {theftCount}
@@ -224,7 +275,11 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                   {(showAllAlerts ? alerts : alerts.slice(0, 3)).map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-300 hover:border-slate-400 transition-all cursor-pointer"
+                      className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        item.id === blinkingAlertId
+                          ? 'bg-rose-50/80 border-2 border-rose-500 shadow-md ring-2 ring-rose-400/40 animate-pulse'
+                          : 'hover:bg-slate-50 border-slate-300 hover:border-slate-400'
+                      }`}
                     >
                       {/* Themed Severity Icon */}
                       <div
@@ -248,15 +303,22 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
                           <h4 className="font-bold text-slate-900 text-xs sm:text-[12.5px] truncate leading-tight">
                             {item.articleDescription}
                           </h4>
-                          <span
-                            className={`shrink-0 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
-                              item.type === 'Untagged' || item.status === 'Untagged'
-                                ? 'bg-sky-50 text-sky-700 border-sky-200'
-                                : 'bg-rose-50 text-rose-700 border-rose-200'
-                            }`}
-                          >
-                            {item.status || item.type || 'Theft'}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {item.id === blinkingAlertId && (
+                              <span className="shrink-0 text-[9.5px] font-black uppercase tracking-wider px-1.5 py-0.2 bg-rose-600 text-white rounded shadow-xs animate-pulse">
+                                Latest
+                              </span>
+                            )}
+                            <span
+                              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.2 rounded-md border ${
+                                item.type === 'Untagged' || item.status === 'Untagged'
+                                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                            >
+                              {item.status || item.type || 'Theft'}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Row 2: Article Number */}
@@ -327,7 +389,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         <div ref={profileRef} className="relative">
           <button
             onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+            className="flex items-center gap-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none"
           >
             {/* User Avatar Initials */}
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#5236df] to-[#7c3aed] text-white flex items-center justify-center font-bold text-xs shadow-xs">
