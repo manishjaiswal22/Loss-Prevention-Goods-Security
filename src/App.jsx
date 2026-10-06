@@ -40,10 +40,16 @@ const App = () => {
     setUser(null);
     try {
       sessionStorage.removeItem('auth_user');
+      sessionStorage.removeItem('auth_token');
       localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_token');
     } catch (e) {
       console.error('Failed to clear session storage', e);
     }
+    const vyaptiLogoutUrl =
+      import.meta.env?.VITE_VYAPTI_LOGOUT_URL ||
+      'http://172.20.204.231/VYAPTI_RETAIL_SUITE/index.aspx';
+    window.location.href = vyaptiLogoutUrl;
   };
 
   return (
