@@ -9,6 +9,16 @@ const DIGITS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
  */
 function TickerDigit({ char, index, totalDigits }) {
   const isDigit = /^[0-9]$/.test(char);
+  const targetNum = isDigit ? parseInt(char, 10) : 0;
+  const [displayNum, setDisplayNum] = useState(0);
+
+  useEffect(() => {
+    if (!isDigit) return;
+    const raf = requestAnimationFrame(() => {
+      setDisplayNum(targetNum);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isDigit, targetNum]);
 
   if (!isDigit) {
     return (
@@ -17,16 +27,6 @@ function TickerDigit({ char, index, totalDigits }) {
       </span>
     );
   }
-
-  const targetNum = parseInt(char, 10);
-  const [displayNum, setDisplayNum] = useState(0);
-
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => {
-      setDisplayNum(targetNum);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [targetNum]);
 
   // Stagger animation slightly from right-to-left for authentic stock ticker cascade
   const delay = Math.max(0, (totalDigits - 1 - index) * 35);

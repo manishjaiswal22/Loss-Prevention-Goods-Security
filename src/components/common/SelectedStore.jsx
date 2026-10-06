@@ -1,17 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Store, Info, MapPin } from 'lucide-react';
+import { Store, MapPin } from 'lucide-react';
 
-/**
- * SelectedStore Component
- * Displays the active/selected store (e.g. HD44 - UTTAM NAGAR) with consistent
- * styling matching CurrentDateOption and DateFilter across all modules.
- *
- * @param {string} storeCode - Short identifier for the store (default: 'HD44')
- * @param {string} storeName - Full name of the store (default: 'UTTAM NAGAR')
- * @param {string} location - City or region (default: 'Delhi')
- * @param {string} className - Additional CSS classes
- * @param {boolean} showInfoPopover - Whether clicking opens the details popover
- */
 export default function SelectedStore({
   storeCode = 'HD44',
   storeName = 'UTTAM NAGAR',
