@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PageHeader from '../common/PageHeader';
 import CurrentDateOption from '../common/CurrentDateOption';
+import SelectedStore from '../common/SelectedStore';
 import StoreFilter from '../common/StoreFilter';
 import StatCard from '../common/StatCard';
 import EpcCard from '../common/EpcCard';
@@ -265,8 +266,8 @@ const DashboardOverview = () => {
           </div>
         )}
 
+        <SelectedStore storeCode="HD44" storeName="UTTAM NAGAR" location="Delhi" />
         <CurrentDateOption date={metrics.date} />
-        <StoreFilter onStoreChange={handleStoreChange} />
       </PageHeader>
 
       {/* 1. Compact Top Stat Cards */}

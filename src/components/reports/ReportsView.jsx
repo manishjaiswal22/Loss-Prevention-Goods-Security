@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import PageHeader from '../common/PageHeader';
-import StoreFilter from '../common/StoreFilter';
+import SelectedStore from '../common/SelectedStore';
 import DateFilter from '../common/DateFilter';
 import StatCard from '../common/StatCard';
 import DataTable from '../common/DataTable';
@@ -368,11 +368,10 @@ const ReportsView = () => {
           const isTheft = row.eventType === 'Theft';
           return (
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl border border-slate-300 text-[11px] font-semibold text-slate-800 transition-colors ${
-                isTheft
-                  ? 'bg-rose-50'
-                  : 'bg-sky-50'
-              }`}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl border border-slate-300 text-[11px] font-semibold text-slate-800 transition-colors ${isTheft
+                ? 'bg-rose-50'
+                : 'bg-sky-50'
+                }`}
             >
               {isTheft ? (
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 stroke-[2.2]" />
@@ -594,7 +593,7 @@ const ReportsView = () => {
       {/* 1. Header with Store & Date Range Filters (Hidden on Print) */}
       <div className="no-print">
         <PageHeader title="Reports">
-          <StoreFilter selectedStore={selectedStore} onStoreChange={handleStoreChange} />
+          <SelectedStore storeCode="HD44" storeName="UTTAM NAGAR" location="Delhi" />
           <DateFilter selectedDate={dateRange.label} onDateChange={handleDateChange} />
         </PageHeader>
       </div>
@@ -629,10 +628,10 @@ const ReportsView = () => {
           title="Potential Loss"
           count={
             !reportData.potentialLoss ||
-            reportData.potentialLoss === 'N/A' ||
-            reportData.potentialLoss === 'NA' ||
-            reportData.potentialLoss === '₹N/A' ||
-            reportData.potentialLoss === '₹NA'
+              reportData.potentialLoss === 'N/A' ||
+              reportData.potentialLoss === 'NA' ||
+              reportData.potentialLoss === '₹N/A' ||
+              reportData.potentialLoss === '₹NA'
               ? '₹0'
               : reportData.potentialLoss.startsWith('₹')
                 ? reportData.potentialLoss
@@ -732,9 +731,8 @@ const ReportsView = () => {
                       >
                         <span className="truncate">{rowsPerPage}</span>
                         <ChevronDown
-                          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
-                            rowsDropdownOpen ? 'rotate-180 text-[#00a8e7]' : ''
-                          }`}
+                          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${rowsDropdownOpen ? 'rotate-180 text-[#00a8e7]' : ''
+                            }`}
                         />
                       </button>
 
@@ -749,11 +747,10 @@ const ReportsView = () => {
                                 role="option"
                                 aria-selected={isSelected}
                                 onClick={() => handleRowsPerPageChange(opt.value)}
-                                className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors ${
-                                  isSelected
-                                    ? 'bg-[#00a8e7]/10 text-[#00a8e7] font-bold'
-                                    : 'text-slate-700 hover:bg-slate-50 font-medium'
-                                }`}
+                                className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors ${isSelected
+                                  ? 'bg-[#00a8e7]/10 text-[#00a8e7] font-bold'
+                                  : 'text-slate-700 hover:bg-slate-50 font-medium'
+                                  }`}
                               >
                                 <span>{opt.label}</span>
                                 {isSelected && <Check className="w-3.5 h-3.5 text-[#00a8e7] shrink-0" />}
@@ -773,22 +770,20 @@ const ReportsView = () => {
                     <button
                       type="button"
                       onClick={() => handleEventTypeChange('All')}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        selectedEventType === 'All'
-                          ? 'bg-white text-slate-900 shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${selectedEventType === 'All'
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       All ({reportData.totalAll})
                     </button>
                     <button
                       type="button"
                       onClick={() => handleEventTypeChange('Theft')}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                        selectedEventType === 'Theft'
-                          ? 'bg-rose-500 text-white shadow-2xs shadow-rose-500/25'
-                          : 'text-slate-600 hover:text-rose-600'
-                      }`}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${selectedEventType === 'Theft'
+                        ? 'bg-rose-500 text-white shadow-2xs shadow-rose-500/25'
+                        : 'text-slate-600 hover:text-rose-600'
+                        }`}
                     >
                       <AlertTriangle className="w-3 h-3" />
                       Theft ({reportData.totalTheft})
@@ -796,11 +791,10 @@ const ReportsView = () => {
                     <button
                       type="button"
                       onClick={() => handleEventTypeChange('Untagged')}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                        selectedEventType === 'Untagged'
-                          ? 'bg-[#00a8e7] text-white shadow-2xs shadow-sky-500/25'
-                          : 'text-slate-600 hover:text-[#00a8e7]'
-                      }`}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${selectedEventType === 'Untagged'
+                        ? 'bg-[#00a8e7] text-white shadow-2xs shadow-sky-500/25'
+                        : 'text-slate-600 hover:text-[#00a8e7]'
+                        }`}
                     >
                       <TagX className="w-3 h-3" />
                       Untagged ({reportData.totalUntagged})
@@ -913,9 +907,8 @@ const ReportsView = () => {
                   </td>
                   <td className="py-1.5 px-2 text-center">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded-lg border border-slate-300 text-[9.5px] font-semibold text-slate-800 ${
-                        item.eventType === 'Theft' ? 'bg-rose-50' : 'bg-sky-50'
-                      }`}
+                      className={`inline-block px-2 py-0.5 rounded-lg border border-slate-300 text-[9.5px] font-semibold text-slate-800 ${item.eventType === 'Theft' ? 'bg-rose-50' : 'bg-sky-50'
+                        }`}
                     >
                       {item.eventType}
                     </span>

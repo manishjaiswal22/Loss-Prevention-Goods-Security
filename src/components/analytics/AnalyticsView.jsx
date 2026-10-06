@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PageHeader from '../common/PageHeader';
-import StoreFilter from '../common/StoreFilter';
+import SelectedStore from '../common/SelectedStore';
 import DateFilter from '../common/DateFilter';
 import StatCard from '../common/StatCard';
 import TagStatusDistributionChart from './TagStatusDistributionChart';
@@ -146,7 +146,7 @@ const AnalyticsView = () => {
     <div className="space-y-4 sm:space-y-5 xl:space-y-6">
       {/* 1. Header with Store & Date Range Filters */}
       <PageHeader title="Analytics">
-        <StoreFilter onStoreChange={handleStoreChange} />
+        <SelectedStore storeCode="HD44" storeName="UTTAM NAGAR" location="Delhi" />
         <DateFilter onDateChange={handleDateChange} />
       </PageHeader>
 
