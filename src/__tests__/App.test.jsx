@@ -41,7 +41,9 @@ describe('App Root Component', () => {
       port: '',
       pathname: '/',
       search: '',
-      hash: '',
+      replace(val) {
+        redirectedUrl = val;
+      },
       set href(val) {
         redirectedUrl = val;
       },

@@ -36,8 +36,6 @@ const App = () => {
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
     try {
       sessionStorage.removeItem('auth_user');
       sessionStorage.removeItem('auth_token');
@@ -49,7 +47,14 @@ const App = () => {
     const vyaptiLogoutUrl =
       import.meta.env?.VITE_VYAPTI_LOGOUT_URL ||
       'http://172.20.204.231/VYAPTI_RETAIL_SUITE/index.aspx';
-    window.location.href = vyaptiLogoutUrl;
+
+    if (typeof window !== 'undefined' && window.location) {
+      if (typeof window.location.replace === 'function') {
+        window.location.replace(vyaptiLogoutUrl);
+      } else {
+        window.location.href = vyaptiLogoutUrl;
+      }
+    }
   };
 
   return (
