@@ -74,7 +74,7 @@ export default function TopStolenData({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
           </span>
-          {totalArticles} Articles · {totalThefts} Thefts
+          {totalArticles} Articles · {totalThefts} Losses
         </span>
       </div>
 
@@ -116,7 +116,7 @@ export default function TopStolenData({
                           {item.theftCount}
                         </span>
                         <span className="text-[10px] sm:text-[10.5px] xl:text-[11px] font-medium text-slate-500">
-                          {item.theftCount === 1 ? 'theft' : 'thefts'}
+                          {item.theftCount === 1 ? 'loss' : 'losses'}
                         </span>
                       </div>
                       {/* Highlighted Percentage Badge with High Contrast */}

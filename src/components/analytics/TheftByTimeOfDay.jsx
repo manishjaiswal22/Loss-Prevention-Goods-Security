@@ -82,7 +82,7 @@ export default function TheftByTimeOfDay({
               Hourly Incidents
             </span>
             <h3 className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[15px] font-bold text-slate-900 tracking-tight truncate leading-tight">
-              Theft by Time of Day
+              Loss by Time of Day
             </h3>
           </div>
         </div>
@@ -270,7 +270,7 @@ export default function TheftByTimeOfDay({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">
-                    Theft by Time of Day - Detailed Analysis
+                    Loss by Time of Day - Detailed Analysis
                   </h4>
                   <p className="text-[11px] text-slate-500">
                     Incident frequency & security shift allocation

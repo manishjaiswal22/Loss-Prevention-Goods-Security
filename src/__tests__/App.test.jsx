@@ -24,33 +24,11 @@ describe('App Root Component', () => {
     expect(screen.getByRole('heading', { level: 1, name: /dashboard/i })).toBeInTheDocument();
   });
 
-  it('clears session storage and redirects to Vyapti Retail Suite upon logout', async () => {
+  it('clears session storage and redirects to login upon logout', async () => {
     sessionStorage.setItem('auth_user', JSON.stringify({ username: 'Manish' }));
     sessionStorage.setItem('auth_token', 'dummy_token');
     localStorage.setItem('auth_user', JSON.stringify({ username: 'Manish' }));
     localStorage.setItem('auth_token', 'dummy_token');
-
-    let redirectedUrl = '';
-    const originalLocation = window.location;
-    delete window.location;
-    window.location = {
-      origin: 'http://localhost',
-      protocol: 'http:',
-      host: 'localhost',
-      hostname: 'localhost',
-      port: '',
-      pathname: '/',
-      search: '',
-      replace(val) {
-        redirectedUrl = val;
-      },
-      set href(val) {
-        redirectedUrl = val;
-      },
-      get href() {
-        return redirectedUrl || 'http://localhost/';
-      },
-    };
 
     render(<App />);
 
@@ -64,8 +42,7 @@ describe('App Root Component', () => {
     expect(sessionStorage.getItem('auth_token')).toBeNull();
     expect(localStorage.getItem('auth_user')).toBeNull();
     expect(localStorage.getItem('auth_token')).toBeNull();
-    expect(redirectedUrl).toBe('http://172.20.204.231/VYAPTI_RETAIL_SUITE/index.aspx');
-
-    window.location = originalLocation;
+    expect(screen.getByRole('heading', { level: 1, name: /welcome back/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /login now/i })).toBeInTheDocument();
   });
 });

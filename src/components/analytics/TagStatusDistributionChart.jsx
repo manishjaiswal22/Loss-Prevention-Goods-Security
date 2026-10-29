@@ -9,18 +9,18 @@ export default function TagStatusDistributionChart({
   const [activeSegment, setActiveSegment] = useState(null);
 
   const fallbackTotal = data?.total ?? 0;
-  const fallbackUntagged = data?.segments?.find((s) => s.id === 'untagged')?.count ?? 0;
-  const fallbackTheft = data?.segments?.find((s) => s.id === 'theft-alerts')?.count ?? 0;
+  const fallbackUntagged = data?.segments?.find((s) => s.id === 'untagged' || s.id === 'checkout')?.count ?? 0;
+  const fallbackTheft = data?.segments?.find((s) => s.id === 'theft-alerts' || s.id === 'loss-alerts')?.count ?? 0;
 
   // Parse numerical values from metrics or fallback to defaults
   const parsedTotal = metrics?.totalTags != null && metrics.totalTags !== '...'
     ? Number(String(metrics.totalTags).replace(/,/g, ''))
     : null;
-  const parsedUntagged = metrics?.untagged != null && metrics.untagged !== '...'
-    ? Number(String(metrics.untagged).replace(/,/g, ''))
+  const parsedUntagged = (metrics?.checkout != null && metrics.checkout !== '...')
+    ? Number(String(metrics.checkout).replace(/,/g, ''))
     : null;
-  const parsedLoss = metrics?.theftAlerts != null && metrics.theftAlerts !== '...'
-    ? Number(String(metrics.theftAlerts).replace(/,/g, ''))
+  const parsedLoss = (metrics?.loss != null && metrics.loss !== '...')
+    ? Number(String(metrics.loss).replace(/,/g, ''))
     : null;
 
   const dist = metrics?.tagStatusDistribution;
@@ -29,11 +29,11 @@ export default function TagStatusDistributionChart({
     ? Number(dist.TotalTags)
     : (parsedTotal != null ? parsedTotal : fallbackTotal);
 
-  const untaggedNum = dist?.Untagged != null
+  const untaggedNum = dist?.Checkout != null ? Number(dist.Checkout) : dist?.Untagged != null
     ? Number(dist.Untagged)
     : (parsedUntagged != null ? parsedUntagged : fallbackUntagged);
 
-  const theftNum = dist?.TheftAlerts != null
+  const theftNum = dist?.Loss != null ? Number(dist.Loss) : dist?.TheftAlerts != null
     ? Number(dist.TheftAlerts)
     : (parsedLoss != null ? parsedLoss : fallbackTheft);
 
@@ -86,7 +86,7 @@ export default function TagStatusDistributionChart({
     },
     {
       id: 'untagged',
-      label: 'Untagged',
+      label: 'Checkout',
       sublabel: 'Tag not removed at POS',
       count: untaggedNum,
       percentage: untaggedPct,
@@ -100,7 +100,7 @@ export default function TagStatusDistributionChart({
     },
     {
       id: 'theft-alerts',
-      label: 'Theft Alerts',
+      label: 'Loss Alerts',
       sublabel: 'Gate scanner alarms',
       count: theftNum,
       percentage: theftPct,
@@ -317,10 +317,10 @@ export default function TagStatusDistributionChart({
           </div>
           <div className="min-w-0">
             <span className="text-[10px] sm:text-[10.5px] font-bold uppercase tracking-wider text-emerald-600 block leading-none mb-0.5">
-              3D Inventory Breakdown
+              Incident Tracking
             </span>
             <h3 className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[15px] font-bold text-slate-900 tracking-tight truncate leading-tight">
-              Tag Status Distribution (3D)
+              Theft Alert Overview
             </h3>
           </div>
         </div>

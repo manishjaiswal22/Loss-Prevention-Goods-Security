@@ -15,6 +15,8 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
     }
   };
 
+  const isExpanded = !isCollapsed || isOpen;
+
   return (
     <>
       {/* Mobile Backdrop Overlay */}
@@ -31,11 +33,16 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
           } ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         {/* Top Header & Navigation */}
-        <div className={`flex flex-col flex-1 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'}`}>
+        <div className={`flex flex-col flex-1 ${!isExpanded ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'}`}>
 
-          {/* Brand Header */}
-          <div className="h-20 border-b border-slate-800/80 px-4 flex items-center justify-between shrink-0">
-            {isCollapsed ? (
+          {/* Brand Header: Solid white background with no border when opened */}
+          <div
+            className={`h-20 px-4 flex items-center justify-between shrink-0 transition-colors duration-200 ${!isExpanded
+                ? 'border-b border-slate-800/80 bg-transparent'
+                : 'bg-white border-none w-[calc(100%+1px)] -mr-[1px]'
+              }`}
+          >
+            {!isExpanded ? (
               /* Mini Mode Circular Logo Badge matching reference */
               <div className="mx-auto w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-lg p-1.5 transition-transform hover:scale-105 cursor-pointer">
                 <img
@@ -45,11 +52,11 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
                 />
               </div>
             ) : (
-              /* Expanded Mode Wide Logo */
+              /* Expanded Mode Wide Logo on pure white background */
               <>
                 <div className="flex items-center">
                   <img
-                    src="/assets/vyapti_logo_white.png"
+                    src="/assets/tecmi_vyapti_logo.png"
                     alt="Vyapti Logo"
                     className="h-12 sm:h-14 w-auto max-w-[200px] object-contain"
                   />
@@ -57,7 +64,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
                 {/* Mobile close button */}
                 <button
                   onClick={onClose}
-                  className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="lg:hidden p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                   title="Close Navigation Drawer"
                 >
                   <X className="w-5 h-5" />
@@ -67,14 +74,14 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
           </div>
 
           {/* Navigation Links */}
-          <nav className={`py-4 space-y-3 ${isCollapsed ? 'px-2 overflow-visible' : 'p-4'}`}>
+          <nav className={`py-4 space-y-3 ${!isExpanded ? 'px-2 overflow-visible' : 'p-4'}`}>
 
             {/* 1. Dashboard Menu */}
             <NavLink
               to="/dashboard"
               onClick={handleNavClick}
               className={({ isActive }) =>
-                isCollapsed
+                !isExpanded
                   ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-tr from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/35 ring-2 ring-[#00a8e7]/20'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
@@ -86,7 +93,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               }
             >
               <LayoutDashboard className="w-5 h-5 shrink-0" />
-              {isCollapsed ? (
+              {!isExpanded ? (
                 <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-2xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none z-50 border border-slate-700 flex items-center">
                   <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900 border-l border-b border-slate-700 rotate-45" />
                   Dashboard
@@ -101,7 +108,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               to="/analytics"
               onClick={handleNavClick}
               className={({ isActive }) =>
-                isCollapsed
+                !isExpanded
                   ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-tr from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/35 ring-2 ring-[#00a8e7]/20'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
@@ -113,7 +120,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               }
             >
               <BarChart3 className="w-5 h-5 shrink-0" />
-              {isCollapsed ? (
+              {!isExpanded ? (
                 <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-2xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none z-50 border border-slate-700 flex items-center">
                   <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900 border-l border-b border-slate-700 rotate-45" />
                   Analytics
@@ -128,7 +135,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               to="/reports"
               onClick={handleNavClick}
               className={({ isActive }) =>
-                isCollapsed
+                !isExpanded
                   ? `relative group w-12 h-12 mx-auto rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer outline-none focus:outline-none focus:ring-0 focus-visible:outline-none select-none ${isActive
                     ? 'bg-gradient-to-tr from-[#00a8e7] via-[#2672e5] to-[#5236df] text-white shadow-lg shadow-[#00a8e7]/35 ring-2 ring-[#00a8e7]/20'
                     : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
@@ -140,7 +147,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
               }
             >
               <FileText className="w-5 h-5 shrink-0" />
-              {isCollapsed ? (
+              {!isExpanded ? (
                 <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-2xl whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none z-50 border border-slate-700 flex items-center">
                   <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 bg-slate-900 border-l border-b border-slate-700 rotate-45" />
                   Reports
@@ -154,7 +161,7 @@ export default function Sidebar({ isOpen, onClose, isCollapsed = true }) {
         </div>
 
         {/* Bottom Section: Hidden when sidebar is collapsed */}
-        {!isCollapsed && (
+        {isExpanded && (
           <div className="p-4 border-t border-slate-800/80">
             <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-3.5 flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#00a8e7]/20 to-[#5236df]/20 text-[#00a8e7] flex items-center justify-center shrink-0 mt-0.5 border border-[#00a8e7]/30">

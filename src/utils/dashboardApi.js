@@ -46,6 +46,10 @@ export function normalizeDashboardData(data) {
       safeAmt = isNaN(parsed) ? 0 : parsed;
     }
 
+    let status = inc.AlertStatus || 'Loss Alert';
+    if (status.toLowerCase().includes('theft')) status = status.replace(/theft/gi, 'Loss');
+    if (status.toLowerCase().includes('untagged')) status = status.replace(/untagged/gi, 'Checkout');
+
     return {
       id: inc.EPC || inc.Id || `inc-${index}`,
       articleDescription: inc.ArticleDescription || inc.ItemName || inc.ArticleDesc || 'Untitled Article',
@@ -55,8 +59,8 @@ export function normalizeDashboardData(data) {
       amountDisplay: `₹${safeAmt.toLocaleString('en-IN')}`,
       date: inc.IncidentDate || inc.Date || '',
       time: inc.IncidentTime || inc.Time || '',
-      status: inc.AlertStatus || 'Theft Alert',
-      variant: 'theft',
+      status,
+      variant: 'loss',
       storeCode: inc.StoreCode || '',
       storeName: inc.StoreName || '',
     };
@@ -65,7 +69,9 @@ export function normalizeDashboardData(data) {
   return {
     date: data.Date || null,
     totalTags: summary.TotalTags != null ? String(summary.TotalTags) : '0',
+    checkout: summary.Checkout != null ? String(summary.Checkout) : (summary.Untagged != null ? String(summary.Untagged) : '0'),
     untagged: summary.Untagged != null ? String(summary.Untagged) : (summary.Checkout != null ? String(summary.Checkout) : '0'),
+    loss: summary.Loss != null ? String(summary.Loss) : (summary.TheftAlerts != null ? String(summary.TheftAlerts) : '0'),
     theftAlerts: summary.TheftAlerts != null ? String(summary.TheftAlerts) : (summary.Loss != null ? String(summary.Loss) : '0'),
     potentialLoss: formatCurrency(rawLoss),
     incidents,
@@ -201,6 +207,10 @@ export function normalizeSingleIncident(inc, index = 0) {
   const defaultDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const defaultTime = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
+  let status = inc.AlertStatus || inc.EventType || 'Loss Alert';
+  if (status.toLowerCase().includes('theft')) status = status.replace(/theft/gi, 'Loss');
+  if (status.toLowerCase().includes('untagged')) status = status.replace(/untagged/gi, 'Checkout');
+
   return {
     id: inc.EPC || inc.EpcCode || inc.Id || `inc-${Date.now()}-${index}`,
     articleDescription: inc.ArticleDescription || inc.ItemName || inc.ArticleDesc || 'Untitled Article',
@@ -210,8 +220,8 @@ export function normalizeSingleIncident(inc, index = 0) {
     amountDisplay: `₹${safeAmt.toLocaleString('en-IN')}`,
     date: inc.IncidentDate || inc.Date || defaultDate,
     time: inc.IncidentTime || inc.Time || defaultTime,
-    status: inc.AlertStatus || inc.EventType || 'Theft Alert',
-    variant: 'theft',
+    status,
+    variant: 'loss',
     storeCode: inc.StoreCode || '',
     storeName: inc.StoreName || '',
   };
@@ -360,7 +370,9 @@ export async function fetchAnalyticsDashboard(payload = {}) {
       startDate: data.StartDate,
       endDate: data.EndDate,
       totalTags: summary.TotalTags != null ? String(summary.TotalTags) : '0',
+      checkout: summary.Checkout != null ? String(summary.Checkout) : (summary.Untagged != null ? String(summary.Untagged) : '0'),
       untagged: summary.Untagged != null ? String(summary.Untagged) : (summary.Checkout != null ? String(summary.Checkout) : '0'),
+      loss: summary.Loss != null ? String(summary.Loss) : (summary.TheftAlerts != null ? String(summary.TheftAlerts) : '0'),
       theftAlerts: summary.TheftAlerts != null ? String(summary.TheftAlerts) : (summary.Loss != null ? String(summary.Loss) : '0'),
       potentialLoss: formatCurrency(rawLoss),
       tagStatusDistribution: data.TagStatusDistribution || null,
@@ -376,10 +388,18 @@ export async function fetchAnalyticsDashboard(payload = {}) {
 
 export async function fetchIncidentReport(payload = {}) {
   try {
+    let rawEventType = payload.EventType ?? 'All';
+    // Translate UI terms 'Loss' -> 'Theft' and 'Checkout' -> 'Untagged' so backend recognizes them
+    if (rawEventType.toLowerCase() === 'loss') {
+      rawEventType = 'Theft';
+    } else if (rawEventType.toLowerCase() === 'checkout') {
+      rawEventType = 'Untagged';
+    }
+
     const body = {
       PageSize: payload.PageSize ?? 10,
       PageNumber: payload.PageNumber ?? 1,
-      EventType: payload.EventType ?? 'All',
+      EventType: rawEventType,
       Search: payload.Search ?? '',
     };
 
@@ -417,11 +437,11 @@ export async function fetchIncidentReport(payload = {}) {
     const data = await response.json();
     const summary = data.Summary || {};
     const totalAll = Number(data.TotalAll ?? data.TotalTags ?? summary.TotalTags ?? data.TotalRecords ?? 0);
-    const totalTheft = Number(data.TotalTheft ?? data.TheftAlerts ?? summary.TheftAlerts ?? summary.Loss ?? 0);
-    const totalUntagged = Number(data.TotalUntagged ?? data.Untagged ?? summary.Untagged ?? summary.Checkout ?? 0);
+    const totalTheft = Number(data.TotalTheft ?? data.TotalLoss ?? data.TheftAlerts ?? data.Loss ?? summary.TheftAlerts ?? summary.Loss ?? 0);
+    const totalUntagged = Number(data.TotalUntagged ?? data.TotalCheckout ?? data.Untagged ?? data.Checkout ?? summary.Untagged ?? summary.Checkout ?? 0);
     const totalTags = Number(data.TotalTags ?? summary.TotalTags ?? totalAll);
-    const theftAlerts = Number(data.TheftAlerts ?? summary.TheftAlerts ?? totalTheft);
-    const untagged = Number(data.Untagged ?? summary.Untagged ?? totalUntagged);
+    const theftAlerts = Number(data.TheftAlerts ?? data.Loss ?? summary.TheftAlerts ?? summary.Loss ?? totalTheft);
+    const untagged = Number(data.Untagged ?? data.Checkout ?? summary.Untagged ?? summary.Checkout ?? totalUntagged);
 
     let potentialLoss = data.PotentialLossDisplay || data.TotalLossDisplay || summary.PotentialLossDisplay;
     if (!potentialLoss || potentialLoss === 'N/A' || potentialLoss === 'NA') {
@@ -442,10 +462,14 @@ export async function fetchIncidentReport(payload = {}) {
       summary: data.Summary || null,
       totalAll,
       totalTheft,
+      totalLoss: totalTheft,
       totalUntagged,
+      totalCheckout: totalUntagged,
       totalTags,
       theftAlerts,
+      loss: theftAlerts,
       untagged,
+      checkout: untagged,
       potentialLoss,
       pageNumber: Number(data.PageNumber ?? body.PageNumber),
       pageSize: Number(data.PageSize ?? body.PageSize),
@@ -461,6 +485,10 @@ export async function fetchIncidentReport(payload = {}) {
           safeAmt = isNaN(parsed) ? 0 : parsed;
         }
 
+        let rawEventType = item.EventType || 'Loss';
+        if (rawEventType.toLowerCase() === 'theft') rawEventType = 'Loss';
+        if (rawEventType.toLowerCase() === 'untagged') rawEventType = 'Checkout';
+
         return {
           id: item.EpcCode || `inc-${item.SrNo || idx}`,
           srNo: item.SrNo ?? idx + 1,
@@ -474,7 +502,7 @@ export async function fetchIncidentReport(payload = {}) {
           qty: item.Qty ?? 1,
           amount: safeAmt,
           amountDisplay: `₹${safeAmt.toLocaleString('en-IN')}`,
-          eventType: item.EventType || 'Theft',
+          eventType: rawEventType,
         };
       }),
     };

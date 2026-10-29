@@ -22,7 +22,7 @@ export default function PageHeader({
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-200/80 ${className}`}
+      className={`sticky top-20 z-20 bg-[#f8f9fa]/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-2.5 -mt-4 pt-3 pb-3 -mx-4 px-4 sm:-mt-2 sm:pt-2.5 sm:pb-2.5 sm:-mx-2 sm:px-2 lg:-mt-4 lg:pt-3 lg:pb-3 lg:-mx-4 lg:px-4 border-b border-slate-200/80 shadow-2xs transition-all ${className}`}
     >
       {/* 1. Left Side: Page Title with Accent Left Border Design */}
       <div className="flex items-center">

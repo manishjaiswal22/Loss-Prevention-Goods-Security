@@ -4,6 +4,7 @@ import SelectedStore from '../common/SelectedStore';
 import DateFilter from '../common/DateFilter';
 import StatCard from '../common/StatCard';
 import DataTable from '../common/DataTable';
+import SweetAlertModal from '../common/SweetAlertModal';
 import { fetchIncidentReport } from '../../utils/dashboardApi';
 import * as XLSX from 'xlsx';
 import {
@@ -50,16 +51,20 @@ const ReportsView = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEventType, setSelectedEventType] = useState('All'); // 'All' | 'Theft' | 'Untagged'
+  const [selectedEventType, setSelectedEventType] = useState('All'); // 'All' | 'Loss' | 'Checkout'
   const [reportData, setReportData] = useState({
     records: [],
     totalRecords: 0,
     totalAll: 0,
     totalTheft: 0,
+    totalLoss: 0,
     totalUntagged: 0,
+    totalCheckout: 0,
     totalTags: 0,
     theftAlerts: 0,
+    loss: 0,
     untagged: 0,
+    checkout: 0,
     potentialLoss: '₹0',
     pageSize: 10,
     pageNumber: 1,
@@ -76,6 +81,7 @@ const ReportsView = () => {
   const [printProgress, setPrintProgress] = useState(0);
   const [progressStatusText, setProgressStatusText] = useState('');
   const [printRecords, setPrintRecords] = useState(null);
+  const [sweetAlert, setSweetAlert] = useState(null);
 
   // Close rows dropdown on outside click
   useEffect(() => {
@@ -200,11 +206,11 @@ const ReportsView = () => {
   const filteredData = useMemo(() => {
     let result = reportData.records || [];
 
-    // Filter by Event Type Tab ('All', 'Theft', 'Untagged')
-    if (selectedEventType === 'Theft') {
-      result = result.filter((item) => item.eventType === 'Theft');
-    } else if (selectedEventType === 'Untagged') {
-      result = result.filter((item) => item.eventType === 'Untagged');
+    // Filter by Event Type Tab ('All', 'Loss', 'Checkout')
+    if (selectedEventType === 'Loss' || selectedEventType === 'Theft') {
+      result = result.filter((item) => item.eventType === 'Loss' || item.eventType === 'Theft');
+    } else if (selectedEventType === 'Checkout' || selectedEventType === 'Untagged') {
+      result = result.filter((item) => item.eventType === 'Checkout' || item.eventType === 'Untagged');
     }
 
     // Filter by Search Query
@@ -282,18 +288,18 @@ const ReportsView = () => {
         minWidth: '130px',
         cell: (row) => <span className="font-semibold text-slate-800 text-[11px]">{row.storeName}</span>,
       },
-      {
-        id: 'epc',
-        name: 'EPC Code',
-        selector: (row) => row.epc,
-        sortable: true,
-        minWidth: '220px',
-        cell: (row) => (
-          <span className="font-mono text-slate-800 text-[11px] font-semibold select-all tracking-wider">
-            {row.epc}
-          </span>
-        ),
-      },
+      // {
+      //   id: 'epc',
+      //   name: 'EPC Code',
+      //   selector: (row) => row.epc,
+      //   sortable: true,
+      //   minWidth: '220px',
+      //   cell: (row) => (
+      //     <span className="font-mono text-slate-800 text-[11px] font-semibold select-all tracking-wider">
+      //       {row.epc}
+      //     </span>
+      //   ),
+      // },
       {
         id: 'articleNo',
         name: 'Article No',
@@ -365,20 +371,23 @@ const ReportsView = () => {
         width: '125px',
         center: true,
         cell: (row) => {
-          const isTheft = row.eventType === 'Theft';
+          const isLoss = row.eventType === 'Loss' || row.eventType === 'Theft';
+          const displayEventType = isLoss
+            ? 'Loss'
+            : (row.eventType === 'Checkout' || row.eventType === 'Untagged' ? 'Checkout' : row.eventType);
           return (
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl border border-slate-300 text-[11px] font-semibold text-slate-800 transition-colors ${isTheft
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl border border-slate-300 text-[11px] font-semibold text-slate-800 transition-colors ${isLoss
                 ? 'bg-rose-50'
                 : 'bg-sky-50'
                 }`}
             >
-              {isTheft ? (
+              {isLoss ? (
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 stroke-[2.2]" />
               ) : (
                 <TagX className="w-3.5 h-3.5 text-[#00a8e7] shrink-0 stroke-[2.2]" />
               )}
-              {row.eventType}
+              {displayEventType}
             </span>
           );
         },
@@ -471,10 +480,10 @@ const ReportsView = () => {
 
     // Client-side safety filter matching active tab and search query
     let finalRecords = accumulated;
-    if (selectedEventType === 'Theft') {
-      finalRecords = finalRecords.filter((r) => r.eventType === 'Theft');
-    } else if (selectedEventType === 'Untagged') {
-      finalRecords = finalRecords.filter((r) => r.eventType === 'Untagged');
+    if (selectedEventType === 'Loss' || selectedEventType === 'Theft') {
+      finalRecords = finalRecords.filter((r) => r.eventType === 'Loss' || r.eventType === 'Theft');
+    } else if (selectedEventType === 'Checkout' || selectedEventType === 'Untagged') {
+      finalRecords = finalRecords.filter((r) => r.eventType === 'Checkout' || r.eventType === 'Untagged');
     }
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -496,6 +505,17 @@ const ReportsView = () => {
 
   const exportToExcel = async () => {
     setExportMenuOpen(false);
+
+    // SweetAlert check: verify records are available
+    if (!filteredData || filteredData.length === 0) {
+      setSweetAlert({
+        title: 'No Records Found',
+        message: 'No records available to export to Excel.',
+        type: 'warning',
+      });
+      return;
+    }
+
     setIsExporting(true);
     setExportProgress(0);
     setProgressStatusText('Starting export...');
@@ -505,6 +525,16 @@ const ReportsView = () => {
         setExportProgress(pct);
         setProgressStatusText(text || `Fetching records... (${current}/${total})`);
       });
+
+      if (!allRecords || allRecords.length === 0) {
+        setIsExporting(false);
+        setSweetAlert({
+          title: 'No Records Found',
+          message: 'No records available to export to Excel.',
+          type: 'warning',
+        });
+        return;
+      }
 
       const exportData = (allRecords || []).map((item, idx) => ({
         'Sr No': idx + 1,
@@ -517,7 +547,9 @@ const ReportsView = () => {
         'Article Description': item.articleDescription,
         'Qty': item.qty,
         'Amount (INR)': item.amount,
-        'Event Type': item.eventType,
+        'Event Type': (item.eventType === 'Theft' || item.eventType === 'Loss')
+          ? 'Loss'
+          : (item.eventType === 'Untagged' || item.eventType === 'Checkout' ? 'Checkout' : item.eventType),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -562,6 +594,17 @@ const ReportsView = () => {
 
   const handlePrint = async () => {
     setExportMenuOpen(false);
+
+    // SweetAlert check: verify records are available
+    if (!filteredData || filteredData.length === 0) {
+      setSweetAlert({
+        title: 'No Records Found',
+        message: 'No records available to print or save to PDF.',
+        type: 'warning',
+      });
+      return;
+    }
+
     setIsPrinting(true);
     setPrintProgress(0);
     setProgressStatusText('Preparing printable report...');
@@ -572,8 +615,17 @@ const ReportsView = () => {
         setProgressStatusText(text || `Fetching records for print... (${current}/${total})`);
       });
 
+      if (!allRecords || allRecords.length === 0) {
+        setIsPrinting(false);
+        setSweetAlert({
+          title: 'No Records Found',
+          message: 'No records available to print or save to PDF.',
+          type: 'warning',
+        });
+        return;
+      }
+
       setPrintRecords(allRecords);
-      // Allow DOM to update printable area before launching browser print dialog
       setTimeout(() => {
         window.print();
         setIsPrinting(false);
@@ -591,12 +643,10 @@ const ReportsView = () => {
   return (
     <div className="space-y-4">
       {/* 1. Header with Store & Date Range Filters (Hidden on Print) */}
-      <div className="no-print">
-        <PageHeader title="Reports">
-          <SelectedStore storeCode="HD44" storeName="UTTAM NAGAR" location="Delhi" />
-          <DateFilter selectedDate={dateRange.label} onDateChange={handleDateChange} />
-        </PageHeader>
-      </div>
+      <PageHeader title="Reports" className="no-print">
+        <SelectedStore storeCode="HD44" storeName="UTTAM NAGAR" location="Delhi" />
+        <DateFilter selectedDate={dateRange.label} onDateChange={handleDateChange} />
+      </PageHeader>
 
       {/* 2. Key Metrics Stat Cards (Hidden on Print) */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
@@ -609,16 +659,16 @@ const ReportsView = () => {
           shimmer={loading}
         />
         <StatCard
-          title="Untagged"
-          count={(reportData.untagged ?? reportData.totalUntagged ?? 0).toLocaleString('en-IN')}
+          title="Checkout"
+          count={(reportData.checkout ?? reportData.untagged ?? reportData.totalCheckout ?? reportData.totalUntagged ?? 0).toLocaleString('en-IN')}
           icon={TagX}
           variant="blue"
           loading={initialLoading}
           shimmer={loading}
         />
         <StatCard
-          title="Theft Alerts"
-          count={(reportData.theftAlerts ?? reportData.totalTheft ?? 0).toLocaleString('en-IN')}
+          title="Loss Alerts"
+          count={(reportData.loss ?? reportData.theftAlerts ?? reportData.totalLoss ?? reportData.totalTheft ?? 0).toLocaleString('en-IN')}
           icon={AlertTriangle}
           variant="gray"
           loading={initialLoading}
@@ -779,25 +829,25 @@ const ReportsView = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleEventTypeChange('Theft')}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${selectedEventType === 'Theft'
+                      onClick={() => handleEventTypeChange('Loss')}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${selectedEventType === 'Loss' || selectedEventType === 'Theft'
                         ? 'bg-rose-500 text-white shadow-2xs shadow-rose-500/25'
                         : 'text-slate-600 hover:text-rose-600'
                         }`}
                     >
                       <AlertTriangle className="w-3 h-3" />
-                      Theft ({reportData.totalTheft})
+                      Loss ({reportData.totalLoss ?? reportData.totalTheft})
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleEventTypeChange('Untagged')}
-                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${selectedEventType === 'Untagged'
+                      onClick={() => handleEventTypeChange('Checkout')}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${selectedEventType === 'Checkout' || selectedEventType === 'Untagged'
                         ? 'bg-[#00a8e7] text-white shadow-2xs shadow-sky-500/25'
                         : 'text-slate-600 hover:text-[#00a8e7]'
                         }`}
                     >
                       <TagX className="w-3 h-3" />
-                      Untagged ({reportData.totalUntagged})
+                      Checkout ({reportData.totalCheckout ?? reportData.totalUntagged})
                     </button>
                   </div>
 
@@ -907,10 +957,12 @@ const ReportsView = () => {
                   </td>
                   <td className="py-1.5 px-2 text-center">
                     <span
-                      className={`inline-block px-2 py-0.5 rounded-lg border border-slate-300 text-[9.5px] font-semibold text-slate-800 ${item.eventType === 'Theft' ? 'bg-rose-50' : 'bg-sky-50'
+                      className={`inline-block px-2 py-0.5 rounded-lg border border-slate-300 text-[9.5px] font-semibold text-slate-800 ${item.eventType === 'Theft' || item.eventType === 'Loss' ? 'bg-rose-50' : 'bg-sky-50'
                         }`}
                     >
-                      {item.eventType}
+                      {(item.eventType === 'Theft' || item.eventType === 'Loss')
+                        ? 'Loss'
+                        : (item.eventType === 'Untagged' || item.eventType === 'Checkout' ? 'Checkout' : item.eventType)}
                     </span>
                   </td>
                 </tr>
@@ -956,6 +1008,16 @@ const ReportsView = () => {
           </div>
         </div>
       )}
+
+      {/* SweetAlert Modal Dialog */}
+      <SweetAlertModal
+        isOpen={Boolean(sweetAlert)}
+        onClose={() => setSweetAlert(null)}
+        title={sweetAlert?.title}
+        message={sweetAlert?.message}
+        type={sweetAlert?.type || 'warning'}
+        confirmText="OK"
+      />
     </div>
   );
 };

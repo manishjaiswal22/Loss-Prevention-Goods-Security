@@ -85,7 +85,7 @@ export default function SelectedStore({
           </div>
 
           <p className="mt-2.5 pt-2 border-t border-slate-100 text-[10.5px] text-slate-500 leading-relaxed">
-            All telemetry metrics, gate sensors, and theft incident alerts are localized to this store facility.
+            All telemetry metrics, gate sensors, and loss incident alerts are localized to this store facility.
           </p>
         </div>
       )}

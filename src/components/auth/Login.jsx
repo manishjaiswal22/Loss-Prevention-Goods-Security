@@ -12,7 +12,7 @@ const Login = ({ onLogin }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         const isUsernameEmpty = !username.trim();
         const isPasswordEmpty = !password;
 
@@ -89,7 +89,7 @@ const Login = ({ onLogin }) => {
                         <img
                             src="/assets/vyapti_logo.png"
                             alt="Vyapti Logo"
-                            className="h-16 sm:h-20 md:h-[84px] w-auto object-contain transition-transform hover:scale-105 duration-200"
+                            className="h-16 sm:h-20 md:h-[80px] w-auto object-contain transition-transform hover:scale-105 duration-200"
                         />
                     </div>
 
@@ -120,11 +120,10 @@ const Login = ({ onLogin }) => {
                                         if (errors.username) setErrors(prev => ({ ...prev, username: false }));
                                     }}
                                     placeholder="Enter Your Username Here.."
-                                    className={`w-full px-4 py-3 sm:py-3.5 text-xs sm:text-sm text-gray-800 placeholder-[#9ca3af] bg-white rounded-xl outline-none transition-all duration-200 shadow-xs ${
-                                        errors.username
-                                            ? 'border-2 border-rose-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15'
-                                            : 'border border-[#e2e8f0] focus:border-[#00a8e7] focus:ring-4 focus:ring-[#00a8e7]/10'
-                                    }`}
+                                    className={`w-full px-4 py-3 sm:py-3.5 text-xs sm:text-sm text-gray-800 placeholder-[#9ca3af] bg-white rounded-xl outline-none transition-all duration-200 shadow-xs ${errors.username
+                                        ? 'border-2 border-rose-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15'
+                                        : 'border border-[#e2e8f0] focus:border-[#00a8e7] focus:ring-4 focus:ring-[#00a8e7]/10'
+                                        }`}
                                 />
                             </div>
                             {errors.username && (
@@ -146,11 +145,10 @@ const Login = ({ onLogin }) => {
                                         if (errors.password) setErrors(prev => ({ ...prev, password: false }));
                                     }}
                                     placeholder="Enter Your Password"
-                                    className={`w-full px-4 py-3 sm:py-3.5 pr-11 text-xs sm:text-sm text-gray-800 placeholder-[#9ca3af] bg-white rounded-xl outline-none transition-all duration-200 shadow-xs ${
-                                        errors.password
-                                            ? 'border-2 border-rose-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15'
-                                            : 'border border-[#e2e8f0] focus:border-[#00a8e7] focus:ring-4 focus:ring-[#00a8e7]/10'
-                                    }`}
+                                    className={`w-full px-4 py-3 sm:py-3.5 pr-11 text-xs sm:text-sm text-gray-800 placeholder-[#9ca3af] bg-white rounded-xl outline-none transition-all duration-200 shadow-xs ${errors.password
+                                        ? 'border-2 border-rose-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15'
+                                        : 'border border-[#e2e8f0] focus:border-[#00a8e7] focus:ring-4 focus:ring-[#00a8e7]/10'
+                                        }`}
                                 />
                                 <button
                                     type="button"
@@ -200,9 +198,22 @@ const Login = ({ onLogin }) => {
                 </div>
 
                 {/* Bottom Copyright & Version Footer */}
-                <div className="max-w-[440px] w-full mx-auto pt-6 pb-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] sm:text-xs text-gray-400">
-                    <span>© {new Date().getFullYear()} TeCMi Vyapti. All rights reserved.</span>
-                    <span className="font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">v1.0.0</span>
+                <div className="w-full pt-5 pb-2 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-[11px] sm:text-xs text-slate-500">
+                    {/* Left: Copyright & Version */}
+                    <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
+                        <span className="text-slate-600 font-medium">© {new Date().getFullYear()} Tecmi Vyapti. All rights reserved.</span>
+                        <span className="font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs text-[10.5px]">v1.0.0</span>
+                    </div>
+
+                    {/* Right: Design & Developed by */}
+                    <div className="flex items-center gap-2 font-medium text-slate-500 whitespace-nowrap shrink-0">
+                        <span>Design &amp; Developed by</span>
+                        <img
+                            src="/assets/site-logo1.png"
+                            alt="TeCMi Vyapti"
+                            className="h-5 sm:h-5.5 w-auto object-contain inline-block"
+                        />
+                    </div>
                 </div>
             </div>
 

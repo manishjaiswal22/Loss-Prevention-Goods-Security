@@ -21,7 +21,7 @@ export default function EpcCard({
   const desc = articleDescription || title || 'Untitled Article';
   const artNo = articleNo || articleNumber || 'N/A';
   const epcVal = epc || epcData || 'N/A';
-  const isTheft = variant === 'theft';
+  const isTheft = variant === 'theft' || variant === 'loss';
   const rawAmount = amount !== undefined ? amount : price;
   const formattedAmount =
     rawAmount !== undefined && rawAmount !== null
@@ -89,7 +89,7 @@ export default function EpcCard({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
               </span>
-              Latest Theft
+              Latest Loss
             </span>
           )}
           <span
@@ -104,7 +104,7 @@ export default function EpcCard({
             ) : (
               <TagX className="w-2.5 h-2.5 text-sky-500 shrink-0" />
             )}
-            <span>{status || (isTheft ? 'Theft Alert' : 'Tag Not Removed')}</span>
+            <span>{status || (isTheft ? 'Loss Alert' : 'Tag Not Removed')}</span>
           </span>
         </div>
       </div>

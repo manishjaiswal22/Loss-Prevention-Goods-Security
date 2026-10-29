@@ -27,7 +27,9 @@ const DashboardOverview = () => {
     date: null,
     totalTags: '0',
     untagged: '0',
+    checkout: '0',
     theftAlerts: '0',
+    loss: '0',
     potentialLoss: '₹0',
     incidents: []
   });
@@ -140,7 +142,8 @@ const DashboardOverview = () => {
 
           return {
             ...prev,
-            theftAlerts: String(Number(prev.theftAlerts || 0) + uniqueNew.length),
+            theftAlerts: String(Number(prev.theftAlerts || prev.loss || 0) + uniqueNew.length),
+            loss: String(Number(prev.loss || prev.theftAlerts || 0) + uniqueNew.length),
             totalTags: String(Number(prev.totalTags || 0) + uniqueNew.length),
             potentialLoss: `₹${(prevLossNum + addedLoss).toLocaleString('en-IN')}`,
             incidents: combined,
@@ -163,7 +166,8 @@ const DashboardOverview = () => {
 
           return {
             ...prev,
-            theftAlerts: String(Number(prev.theftAlerts || 0) + 1),
+            theftAlerts: String(Number(prev.theftAlerts || prev.loss || 0) + 1),
+            loss: String(Number(prev.loss || prev.theftAlerts || 0) + 1),
             totalTags: String(Number(prev.totalTags || 0) + 1),
             potentialLoss: `₹${(prevLossNum + (newInc.amount || 0)).toLocaleString('en-IN')}`,
             incidents: updatedIncidents,
@@ -280,15 +284,15 @@ const DashboardOverview = () => {
           loading={loading}
         />
         <StatCard
-          title="Untagged"
-          count={metrics.untagged}
+          title="Checkout"
+          count={metrics.checkout ?? metrics.untagged}
           icon={TagX}
           variant="blue"
           loading={loading}
         />
         <StatCard
-          title="Theft Alerts"
-          count={metrics.theftAlerts}
+          title="Loss Alerts"
+          count={metrics.loss ?? metrics.theftAlerts}
           icon={AlertTriangle}
           variant="gray"
           loading={loading}
@@ -360,7 +364,7 @@ const DashboardOverview = () => {
                   Security Incidents
                 </span>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight truncate leading-tight">
-                  Theft & Gate Alarms
+                  Loss & Gate Alarms
                 </h3>
               </div>
             </div>
@@ -370,7 +374,7 @@ const DashboardOverview = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
               </span>
-              {metrics.theftAlerts || (metrics.incidents ? metrics.incidents.length : 0)} Alarms
+              {metrics.loss || metrics.theftAlerts || (metrics.incidents ? metrics.incidents.length : 0)} Alarms
             </span>
           </div>
 
@@ -391,14 +395,14 @@ const DashboardOverview = () => {
                   date={item.date}
                   time={item.time}
                   status={item.status}
-                  variant="theft"
+                  variant="loss"
                   loading={loading}
                   isLatest={item.id === blinkingIncidentId}
                 />
               ))
             ) : (
               <div className="col-span-full py-8 text-center text-xs text-slate-400">
-                No theft alerts found
+                No loss alerts found
               </div>
             )}
           </div>

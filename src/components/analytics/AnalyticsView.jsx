@@ -33,7 +33,9 @@ const AnalyticsView = () => {
   const [metrics, setMetrics] = useState({
     totalTags: '0',
     untagged: '0',
+    checkout: '0',
     theftAlerts: '0',
+    loss: '0',
     potentialLoss: '₹0'
   });
 
@@ -161,16 +163,16 @@ const AnalyticsView = () => {
           shimmer={loading}
         />
         <StatCard
-          title="Untagged"
-          count={metrics.untagged}
+          title="Checkout"
+          count={metrics.checkout ?? metrics.untagged}
           icon={TagX}
           variant="blue"
           loading={initialLoading}
           shimmer={loading}
         />
         <StatCard
-          title="Theft Alerts"
-          count={metrics.theftAlerts}
+          title="Loss Alerts"
+          count={metrics.loss ?? metrics.theftAlerts}
           icon={AlertTriangle}
           variant="gray"
           loading={initialLoading}
