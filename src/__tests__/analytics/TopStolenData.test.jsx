@@ -21,14 +21,14 @@ describe('TopStolenData Component', () => {
     },
   ];
 
-  it('renders "Top 5 Stolen Items" header and item count pill', () => {
+  it('renders "Top 5 Stolen Articles" header and item count pill', () => {
     render(<TopStolenData items={customItems} />);
 
-    expect(screen.getByText('Top 5 Stolen Items')).toBeInTheDocument();
-    expect(screen.getByText(/2 Articles · 60 Thefts/i)).toBeInTheDocument();
+    expect(screen.getByText('Top 5 Stolen Articles')).toBeInTheDocument();
+    expect(screen.getByText(/2 Articles · 60 Losses/i)).toBeInTheDocument();
   });
 
-  it('renders ranked items with article numbers and theft counts', () => {
+  it('renders ranked items with article numbers, counts, MRP, and loss values', () => {
     render(<TopStolenData items={customItems} />);
 
     expect(screen.getByText('Men Slim Fit Denim Jeans')).toBeInTheDocument();
@@ -38,6 +38,12 @@ describe('TopStolenData Component', () => {
     expect(screen.getByText('Leather Wallet')).toBeInTheDocument();
     expect(screen.getByText('ART-9902')).toBeInTheDocument();
     expect(screen.getByText('15')).toBeInTheDocument();
+
+    // MRP: 89995 / 45 = ~2,000, 22485 / 15 = ~1,499
+    expect(screen.getByText('₹2,000')).toBeInTheDocument();
+    expect(screen.getByText('₹1,499')).toBeInTheDocument();
+    expect(screen.getByText('₹89,995')).toBeInTheDocument();
+    expect(screen.getByText('₹22,485')).toBeInTheDocument();
   });
 
   it('renders calculated share percentage pills correctly', () => {

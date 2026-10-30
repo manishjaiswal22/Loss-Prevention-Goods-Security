@@ -54,6 +54,8 @@ const DataTable = ({
   pointerOnHover = false,
   striped = false,
   dense = false,
+  fixedHeader = false,
+  fixedHeaderScrollHeight = null,
   progressPending = false,
   progressComponent,
   noDataComponent,
@@ -255,7 +257,7 @@ const DataTable = ({
     <div className={`w-full bg-white border-2 border-slate-200/80 rounded-2xl overflow-hidden shadow-xs flex flex-col transition-all ${className}`}>
       {/* Optional SubHeader / Actions Toolbar */}
       {subHeader && subHeaderComponent && (
-        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/70 via-white to-slate-50/40">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50/70 via-white to-slate-50/40 shrink-0">
           {subHeaderComponent}
         </div>
       )}
@@ -263,12 +265,13 @@ const DataTable = ({
       {/* Table Container with Custom Scrollbar & Standard Text Selection */}
       <div
         ref={tableContainerRef}
-        className="overflow-x-auto w-full relative custom-scrollbar select-text"
+        className={`overflow-x-auto w-full relative custom-scrollbar select-text ${fixedHeader ? 'overflow-y-auto flex-1 min-h-0' : ''}`}
+        style={fixedHeader && fixedHeaderScrollHeight ? { maxHeight: fixedHeaderScrollHeight } : undefined}
       >
         <table className="w-full text-left border-collapse">
           {/* Table Header (<thead>) */}
-          <thead>
-            <tr className="bg-slate-100/90 border-b-2 border-slate-200 text-[11px] font-bold text-slate-700 select-none">
+          <thead className={fixedHeader ? 'sticky top-0 z-20 bg-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.06)]' : ''}>
+            <tr className="bg-slate-100 border-b-2 border-slate-200 text-[11px] font-bold text-slate-700 select-none">
               {/* Optional Master Checkbox Header */}
               {selectableRows && (
                 <th className="py-3 px-3.5 text-center w-11">
@@ -300,7 +303,7 @@ const DataTable = ({
                       minWidth: col.minWidth || 'auto',
                       maxWidth: col.maxWidth || 'auto',
                     }}
-                    className={`py-3 px-3.5 text-[11px] font-bold transition-colors select-none ${
+                    className={`${dense ? 'py-2 px-3' : 'py-3 px-3.5'} text-[11px] font-bold transition-colors select-none ${fixedHeader ? 'bg-slate-100' : ''} ${
                       col.center ? 'text-center' : col.right ? 'text-right' : 'text-left'
                     } ${
                       isSortable

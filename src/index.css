@@ -310,11 +310,15 @@ input[type="radio"],
 }
 
 /* -------------------------------------------------------------------------- */
-/* PRINT & SAVE TO PDF OPTIMIZATIONS                                          */
-/* Print ONLY the report table with clean layout, hiding the rest of the page */
+/* PRINT SPECIFIC STYLES                                                      */
 /* -------------------------------------------------------------------------- */
 @media print {
-  /* Hide application shell elements */
+  @page {
+    size: auto;
+    margin: 8mm 10mm 10mm 10mm;
+  }
+
+  /* Hide application shell elements, interactive controls, and modal overlays */
   nav,
   aside,
   header,
@@ -322,51 +326,72 @@ input[type="radio"],
   button,
   input,
   select,
-  .no-print {
+  .no-print,
+  .print\:hidden,
+  [role="dialog"] {
     display: none !important;
   }
 
+  /* Reset layout boundaries so the document flows naturally across all printed pages */
+  html,
   body {
     background: #ffffff !important;
     color: #0f172a !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 
-  /* Hide everything on page by default */
-  body * {
-    visibility: hidden;
+  #root,
+  #root > div,
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-left: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    position: static !important;
   }
 
-  /* Make printable area and all its children visible */
-  #printable-report-area,
-  #printable-report-area * {
-    visibility: visible !important;
-  }
-
+  /* Printable container in natural document flow (avoids position: absolute clipping) */
   #printable-report-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    display: block !important;
+    position: static !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 16px !important;
+    padding: 0 !important;
     background: #ffffff !important;
     box-shadow: none !important;
     border: none !important;
+    overflow: visible !important;
   }
 
-  /* Ensure table prints crisp borders and repeatable headers */
+  /* Ensure table prints crisp borders and repeatable headers across all pages */
   #printable-report-area table {
     width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 9pt !important;
+    font-size: 8.5pt !important;
+    page-break-inside: auto !important;
+  }
+
+  #printable-report-area thead {
+    display: table-header-group !important;
+  }
+
+  #printable-report-area tfoot {
+    display: table-footer-group !important;
   }
 
   #printable-report-area th,
   #printable-report-area td {
     border: 1px solid #cbd5e1 !important;
-    padding: 6px 8px !important;
+    padding: 5px 6px !important;
     color: #0f172a !important;
   }
 

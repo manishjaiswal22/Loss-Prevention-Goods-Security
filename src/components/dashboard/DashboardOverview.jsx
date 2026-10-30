@@ -291,14 +291,14 @@ const DashboardOverview = () => {
           loading={loading}
         />
         <StatCard
-          title="Loss Alerts"
+          title="Theft Alerts"
           count={metrics.loss ?? metrics.theftAlerts}
           icon={AlertTriangle}
           variant="gray"
           loading={loading}
         />
         <StatCard
-          title="Potential Loss"
+          title="Revenue Loss"
           count={metrics.potentialLoss}
           icon={TrendingDown}
           variant="rose"

@@ -81,21 +81,39 @@ export default function DateFilter({
         }
     };
 
+    const isFiltered = currentDateLabel && currentDateLabel !== 'Today';
+
     return (
         <div className={`relative inline-block ${className}`}>
-            {/* Date Range Trigger Button - Clicking toggles open/close */}
+            {/* Date Range Trigger Button - Professional styling matching store filter */}
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="h-8.5 px-3 bg-white border border-slate-200/90 hover:border-slate-300 rounded-lg flex items-center gap-2 text-xs font-medium text-slate-700 shadow-2xs transition-all cursor-pointer"
+                className={`h-8.5 px-3 bg-white rounded-lg flex items-center gap-2 text-xs font-medium shadow-2xs transition-all cursor-pointer select-none border ${
+                    isFiltered
+                        ? 'border-sky-300 bg-sky-50/20 text-slate-900 hover:border-sky-400'
+                        : 'border-slate-200/90 hover:border-slate-300 text-slate-700'
+                }`}
                 aria-haspopup="dialog"
                 aria-expanded={isOpen}
+                aria-label={`Date Filter: ${currentDateLabel}`}
             >
                 <Calendar className="w-3.5 h-3.5 text-[#00a8e7] shrink-0" />
-                <span>{currentDateLabel}</span>
+
+                {isFiltered ? (
+                    <span className="inline-flex items-center text-[10.5px] font-bold text-[#007ba8] bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded tracking-wide whitespace-nowrap">
+                        {currentDateLabel}
+                    </span>
+                ) : (
+                    <span className="font-semibold text-slate-800 tracking-tight whitespace-nowrap">
+                        {currentDateLabel}
+                    </span>
+                )}
+
                 <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
-                        }`}
+                    className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180' : ''
+                    }`}
                 />
             </button>
 

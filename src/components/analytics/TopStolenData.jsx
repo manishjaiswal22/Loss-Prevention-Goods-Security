@@ -25,7 +25,34 @@ export default function TopStolenData({
     const itemDescription = item.ArticleDesc || item.ArticleDescription || item.ItemName || item.itemDescription || 'Untitled Item';
     const theftCount = item.Thefts != null ? Number(item.Thefts) : (item.theftCount != null ? Number(item.theftCount) : 0);
     const lossValue = item.TotalLossAmount != null ? Number(item.TotalLossAmount) : (item.lossValue != null ? Number(item.lossValue) : 0);
-    const lossDisplay = item.LossDisplay || `₹${lossValue.toLocaleString('en-IN')}`;
+
+    // Clean and normalize Loss display
+    let lossDisplay = item.LossDisplay || `₹${lossValue.toLocaleString('en-IN')}`;
+    if (lossDisplay.startsWith('?')) {
+      lossDisplay = `₹${lossDisplay.slice(1)}`;
+    }
+    if (!lossDisplay.startsWith('₹') && !lossDisplay.toLowerCase().startsWith('rs')) {
+      lossDisplay = `₹${lossDisplay}`;
+    }
+
+    // Determine MRP (from explicit property or calculated: lossValue / theftCount)
+    const rawMrp = item.MRP ?? item.Mrp ?? item.mrp ?? item.Price ?? item.price ?? item.UnitPrice ?? item.unitPrice ?? item.Amount ?? item.amount;
+    let mrpValue = 0;
+    if (rawMrp != null && rawMrp !== '' && rawMrp !== 'N/A' && rawMrp !== 'NA') {
+      const parsed = Number(String(rawMrp).replace(/[^\d.]/g, ''));
+      mrpValue = isNaN(parsed) ? 0 : parsed;
+    } else if (theftCount > 0 && lossValue > 0) {
+      mrpValue = Math.round(lossValue / theftCount);
+    }
+
+    let mrpDisplay = item.MRPDisplay || item.mrpDisplay || `₹${mrpValue.toLocaleString('en-IN')}`;
+    if (mrpDisplay.startsWith('?')) {
+      mrpDisplay = `₹${mrpDisplay.slice(1)}`;
+    }
+    if (!mrpDisplay.startsWith('₹') && !mrpDisplay.toLowerCase().startsWith('rs')) {
+      mrpDisplay = `₹${mrpDisplay}`;
+    }
+
     const percentage = item.Percentage != null ? Number(item.Percentage) : null;
     const color = item.color || ITEM_COLORS[index % ITEM_COLORS.length];
 
@@ -35,6 +62,8 @@ export default function TopStolenData({
       theftCount,
       lossValue,
       lossDisplay,
+      mrpValue,
+      mrpDisplay,
       percentage,
       color,
     };
@@ -63,7 +92,7 @@ export default function TopStolenData({
               High Incident Targets
             </span>
             <h3 className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[15px] font-bold text-slate-900 tracking-tight truncate leading-tight">
-              Top 5 Stolen Items
+              Top 5 Stolen Articles
             </h3>
           </div>
         </div>
@@ -137,7 +166,7 @@ export default function TopStolenData({
                     />
                   </div>
 
-                  {/* Line 3: Article Number clearly grouped inside item container on Left, Loss Value on Right */}
+                  {/* Line 3: Article Number on Left, MRP & Loss Value on Right */}
                   <div className="flex items-center justify-between text-[10px] sm:text-[10.5px] xl:text-[11.5px] 2xl:text-xs text-slate-500 pt-0.5">
                     <div className="flex items-center gap-1.5">
                       <span className="text-slate-400 font-medium">Article No:</span>
@@ -146,8 +175,13 @@ export default function TopStolenData({
                       </span>
                     </div>
 
-                    <div className="font-medium text-slate-500">
-                      Loss: <span className="font-bold text-slate-900 text-[10.5px] sm:text-[11.5px] xl:text-[12.5px] 2xl:text-[13.5px]">{item.lossDisplay}</span>
+                    <div className="flex items-center gap-2 sm:gap-3 font-medium text-slate-500">
+                      <div>
+                        MRP: <span className="font-bold text-slate-900 text-[10.5px] sm:text-[11.5px] xl:text-[12.5px] 2xl:text-[13.5px]">{item.mrpDisplay}</span>
+                      </div>
+                      <div>
+                        Loss: <span className="font-bold text-slate-900 text-[10.5px] sm:text-[11.5px] xl:text-[12.5px] 2xl:text-[13.5px]">{item.lossDisplay}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -159,4 +193,3 @@ export default function TopStolenData({
     </div>
   );
 }
-

@@ -20,7 +20,7 @@ describe('DateFilter Component', () => {
     expect(screen.getByText('Last 7 Days')).toBeInTheDocument();
   });
 
-  it('calls onDateChange and keeps datepicker open when preset option is selected', () => {
+  it('calls onDateChange and applies preset when option is selected', () => {
     const handleDateChange = vi.fn();
     render(<DateFilter onDateChange={handleDateChange} />);
 
@@ -35,7 +35,7 @@ describe('DateFilter Component', () => {
         endDate: expect.any(Date),
       })
     );
-    expect(screen.getByText('Select Custom Range')).toBeInTheDocument();
+    expect(screen.getByText('Yesterday')).toBeInTheDocument();
   });
 
   it('closes popover when Close button in header or footer is clicked', () => {

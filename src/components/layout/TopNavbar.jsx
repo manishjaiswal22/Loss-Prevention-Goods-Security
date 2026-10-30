@@ -215,7 +215,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         {/* Platform Title & Subtitle */}
         <div className="flex flex-col justify-center min-w-0">
           <h1 className="text-base sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight leading-tight truncate">
-            Loss Prevention & Management
+            Retail Loss Prevention & Security Intelligence
           </h1>
           <p className="text-[11.5px] sm:text-xs text-slate-500 font-medium mt-0.5 leading-snug">
             Real-time monitoring of checkout and loss analytics
@@ -238,7 +238,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
             }}
             className={`w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 hover:text-slate-900 transition-all relative cursor-pointer shadow-2xs outline-none focus:outline-none focus:ring-0 focus-visible:outline-none ${isBlinkingBadge ? 'border-rose-300 bg-rose-50/40' : ''
               }`}
-            title="Loss & Security Alerts"
+            title="Loss & Theft Alerts"
           >
             <Bell className={`w-5 h-5 transition-colors ${isBlinkingBadge ? 'text-rose-600' : 'text-slate-700'}`} />
             {/* Notification Badge - Positioned at corner without covering bell, blinks for 10s */}

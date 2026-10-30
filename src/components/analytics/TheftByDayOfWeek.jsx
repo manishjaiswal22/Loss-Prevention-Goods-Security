@@ -84,7 +84,7 @@ export default function TheftByDayOfWeek({
               Weekly Trends
             </span>
             <h3 className="text-xs sm:text-[13px] xl:text-sm 2xl:text-[15px] font-bold text-slate-900 tracking-tight truncate leading-tight">
-              Loss by Day of Week
+              Day-wise theft trends
             </h3>
           </div>
         </div>
@@ -271,7 +271,7 @@ export default function TheftByDayOfWeek({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">
-                    Loss by Day of Week - Weekly Trends
+                    Day-wise theft trends - Weekly Trends
                   </h4>
                   <p className="text-[11px] text-slate-500">
                     Day-by-day incident volume & weekly risk profile
