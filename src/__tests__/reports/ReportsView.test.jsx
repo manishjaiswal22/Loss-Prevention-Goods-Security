@@ -264,4 +264,29 @@ describe('ReportsView Component', () => {
     });
     expect(screen.queryByText('Article Item 1')).not.toBeInTheDocument();
   });
+
+  it('does not close modal when clicking outside on the backdrop', async () => {
+    render(
+      <MemoryRouter>
+        <ReportsView />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('28').length).toBeGreaterThan(0);
+    });
+
+    const articleCountBtn = screen.getByTitle(/View detailed records for 26-10-2026 \(28 articles\)/i);
+    fireEvent.click(articleCountBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Detailed Incident Report')).toBeInTheDocument();
+    });
+
+    const dialogBackdrop = screen.getByRole('dialog');
+    fireEvent.click(dialogBackdrop);
+
+    // Modal should remain open
+    expect(screen.getByText('Detailed Incident Report')).toBeInTheDocument();
+  });
 });

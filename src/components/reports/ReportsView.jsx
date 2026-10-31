@@ -1562,9 +1562,6 @@ const ReportsView = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-incident-title"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal();
-          }}
         >
           <div
             className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 overscroll-contain"
