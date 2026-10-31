@@ -154,6 +154,30 @@ const ReportsView = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [modalOpen]);
 
+  // Lock background scroll when modal is open to prevent background scrolling
+  useEffect(() => {
+    if (!modalOpen) return;
+
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+
+    // Compensate for scrollbar width so background content doesn't shift horizontally
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+    };
+  }, [modalOpen]);
+
   // -------------------------------------------------------------
   // 5. Data Fetching: Main Summary Table
   // -------------------------------------------------------------
@@ -1534,7 +1558,7 @@ const ReportsView = () => {
       {/* ------------------------------------------------------------- */}
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 print:hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 print:hidden overscroll-contain"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-incident-title"
@@ -1542,7 +1566,10 @@ const ReportsView = () => {
             if (e.target === e.currentTarget) closeModal();
           }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+          <div
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
             <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-4 shrink-0">
               <div className="flex items-center gap-3 flex-wrap">
