@@ -380,12 +380,10 @@ const ReportsView = () => {
     setModalRowsPerPage(newVal);
     setModalCurrentPage(1);
     setModalRowsDropdownOpen(false);
-    loadModalReport({ pageSize: newVal, page: 1 });
   };
 
   const handleModalPageChange = (newPage) => {
     setModalCurrentPage(newPage);
-    loadModalReport({ page: newPage });
   };
 
   // -------------------------------------------------------------
@@ -1637,7 +1635,7 @@ const ReportsView = () => {
                           onChange={handleModalSearchChange}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              loadModalReport({ search: modalSearchQuery, page: 1 });
+                              e.preventDefault();
                             }
                           }}
                           className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:border-[#00a8e7] focus:ring-2 focus:ring-[#00a8e7]/15 transition-all text-slate-900 placeholder-slate-400 font-medium"

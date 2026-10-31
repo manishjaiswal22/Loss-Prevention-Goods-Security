@@ -206,4 +206,62 @@ describe('ReportsView Component', () => {
     expect(screen.getByText('Microsoft Excel (.xlsx)')).toBeInTheDocument();
     expect(screen.getByText('Save to PDF / Print')).toBeInTheDocument();
   });
+
+  it('navigates to page 2 in the modal table and stays on page 2', async () => {
+    const dummyRecords = Array.from({ length: 25 }, (_, i) => ({
+      id: `detail-${i + 1}`,
+      srNo: i + 1,
+      date: '26-10-2026',
+      time: '14:20:00',
+      storeCode: 'HD44',
+      storeName: 'UTTAM NAGAR',
+      epc: `EPC-${i + 1}`,
+      articleNo: `ART-${10000 + i + 1}`,
+      articleDescription: `Article Item ${i + 1}`,
+      mrp: 100 * (i + 1),
+      mrpDisplay: `₹${100 * (i + 1)}`,
+      qty: 1,
+      amount: 100 * (i + 1),
+      amountDisplay: `₹${100 * (i + 1)}`,
+      eventType: 'Loss',
+    }));
+
+    const { fetchIncidentReportDetails } = await import('../../utils/dashboardApi');
+    fetchIncidentReportDetails.mockResolvedValueOnce({
+      code: 1,
+      msg: 'Success',
+      totalRecords: 25,
+      records: dummyRecords,
+    });
+
+    render(
+      <MemoryRouter>
+        <ReportsView />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('28').length).toBeGreaterThan(0);
+    });
+
+    const articleCountBtn = screen.getByTitle(/View detailed records for 26-10-2026 \(28 articles\)/i);
+    fireEvent.click(articleCountBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Detailed Incident Report')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Article Item 1')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Article Item 15')).not.toBeInTheDocument();
+
+    const page2Btn = screen.getByRole('button', { name: '2' });
+    fireEvent.click(page2Btn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Article Item 15')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Article Item 1')).not.toBeInTheDocument();
+  });
 });
