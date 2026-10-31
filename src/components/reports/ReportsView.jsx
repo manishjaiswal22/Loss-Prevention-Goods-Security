@@ -234,26 +234,19 @@ const ReportsView = () => {
       const eventType = overrides.eventType !== undefined
         ? overrides.eventType
         : (selectedRowContext.eventType || mainSelectedEventType || 'All');
-      const page = overrides.page !== undefined ? overrides.page : modalCurrentPage;
-      const pageSize = overrides.pageSize !== undefined ? overrides.pageSize : modalRowsPerPage;
-      const search = overrides.search !== undefined ? overrides.search : modalSearchQuery;
-      const effectivePageSize = pageSize === 'All' ? 10000 : Number(pageSize);
 
       try {
         const res = await fetchIncidentReportDetails({
           Date: targetDate,
           StoreCode: targetStore !== 'all' ? targetStore : undefined,
-          PageNumber: page,
-          PageSize: effectivePageSize,
+          PageNumber: 1,
+          PageSize: 10000,
           EventType: eventType !== 'All' ? eventType : undefined,
-          Search: search.trim() || undefined,
         });
 
         if (res && res.records) {
           setModalReportData(res);
-          if (res.pageNumber) {
-            setModalCurrentPage(res.pageNumber);
-          }
+          setModalCurrentPage(1);
         }
       } catch (error) {
         console.error('Failed to load incident report details for modal:', error);
@@ -261,7 +254,7 @@ const ReportsView = () => {
         setModalLoading(false);
       }
     },
-    [selectedRowContext, modalCurrentPage, modalRowsPerPage, modalSearchQuery, mainSelectedEventType]
+    [selectedRowContext, mainSelectedEventType]
   );
 
   // Trigger modal fetch whenever row context changes
@@ -269,22 +262,7 @@ const ReportsView = () => {
     if (modalOpen && selectedRowContext) {
       loadModalReport();
     }
-  }, [modalOpen, selectedRowContext]);
-
-  // Debounce server search for modal detailed table
-  const prevModalSearchQuery = useRef(modalSearchQuery);
-  useEffect(() => {
-    if (!modalOpen || !selectedRowContext) {
-      prevModalSearchQuery.current = '';
-      return;
-    }
-    if (prevModalSearchQuery.current === modalSearchQuery) return;
-    prevModalSearchQuery.current = modalSearchQuery;
-    const timer = setTimeout(() => {
-      loadModalReport({ search: modalSearchQuery, page: 1 });
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [modalSearchQuery, modalOpen, selectedRowContext, loadModalReport]);
+  }, [modalOpen, selectedRowContext, loadModalReport]);
 
   // -------------------------------------------------------------
   // 7. Modal Open & Close Handlers
@@ -443,7 +421,7 @@ const ReportsView = () => {
     return result;
   }, [mainReportData.records, mainSelectedEventType, mainSearchQuery]);
 
-  // Modal detailed table filtered data
+  // Modal detailed table filtered data across ALL columns
   const filteredModalData = useMemo(() => {
     let result = modalReportData.records || [];
     const eventType = selectedRowContext?.eventType;
@@ -455,22 +433,40 @@ const ReportsView = () => {
       result = result.filter((item) => item.eventType === 'Checkout' || item.eventType === 'Untagged');
     }
 
-    // Filter by Search Query
+    // Comprehensive Search across ALL columns (Article No, Description, Time, Date, Store, Qty, MRP, Amount, Event Type)
     if (modalSearchQuery.trim()) {
       const q = modalSearchQuery.trim().toLowerCase();
       result = result.filter((item) => {
+        const srNoStr = String(item.srNo ?? '').toLowerCase();
+        const dateStr = String(item.date ?? '').toLowerCase();
+        const timeStr = String(item.time ?? '').toLowerCase();
+        const storeCodeStr = String(item.storeCode ?? '').toLowerCase();
+        const storeNameStr = String(item.storeName ?? '').toLowerCase();
+        const articleNoStr = String(item.articleNo ?? '').toLowerCase();
+        const descStr = String(item.articleDescription ?? '').toLowerCase();
+        const qtyStr = String(item.qty ?? '').toLowerCase();
+        const mrpStr = String(item.mrp ?? '').toLowerCase();
+        const mrpDisplayStr = String(item.mrpDisplay ?? '').toLowerCase();
+        const amountStr = String(item.amount ?? '').toLowerCase();
+        const amountDisplayStr = String(item.amountDisplay ?? '').toLowerCase();
+        const eventTypeStr = String(item.eventType ?? '').toLowerCase();
+        const epcStr = String(item.epc ?? '').toLowerCase();
+
         return (
-          //item.epc?.toLowerCase().includes(q) ||
-          item.articleNo?.toLowerCase().includes(q) ||
-          item.articleDescription?.toLowerCase().includes(q) ||
-          item.storeCode?.toLowerCase().includes(q) ||
-          item.storeName?.toLowerCase().includes(q) ||
-          item.time?.toLowerCase().includes(q) ||
-          item.date?.toLowerCase().includes(q) ||
-          item.eventType?.toLowerCase().includes(q) ||
-          String(item.mrp ?? '').includes(q) ||
-          String(item.amount ?? '').includes(q) ||
-          String(item.srNo ?? '').includes(q)
+          srNoStr.includes(q) ||
+          dateStr.includes(q) ||
+          timeStr.includes(q) ||
+          storeCodeStr.includes(q) ||
+          storeNameStr.includes(q) ||
+          articleNoStr.includes(q) ||
+          descStr.includes(q) ||
+          qtyStr.includes(q) ||
+          mrpStr.includes(q) ||
+          mrpDisplayStr.includes(q) ||
+          amountStr.includes(q) ||
+          amountDisplayStr.includes(q) ||
+          eventTypeStr.includes(q) ||
+          epcStr.includes(q)
         );
       });
     }
@@ -1613,8 +1609,8 @@ const ReportsView = () => {
                 data={filteredModalData}
                 keyField="id"
                 pagination
-                paginationServer={true}
-                paginationTotalRows={modalReportData.totalRecords || filteredModalData.length}
+                paginationServer={false}
+                paginationTotalRows={filteredModalData.length}
                 paginationDefaultPage={modalCurrentPage}
                 paginationPerPage={modalRowsPerPage === 'All' ? 100000 : Number(modalRowsPerPage)}
                 paginationRowsPerPageOptions={[10, 20, 50, 100, 'All']}
@@ -1636,7 +1632,7 @@ const ReportsView = () => {
                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
-                          placeholder="Search by Article No, Description, Time, Event..."
+                          placeholder="Search across all columns (Article, Description, Time, Date, Store, Qty, Amount...)"
                           value={modalSearchQuery}
                           onChange={handleModalSearchChange}
                           onKeyDown={(e) => {
@@ -1652,7 +1648,6 @@ const ReportsView = () => {
                             onClick={() => {
                               setModalSearchQuery('');
                               setModalCurrentPage(1);
-                              loadModalReport({ search: '', page: 1 });
                             }}
                             className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
                             title="Clear Search"

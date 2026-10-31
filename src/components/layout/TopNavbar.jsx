@@ -215,7 +215,7 @@ export default function TopNavbar({ onToggleSidebar, user, onLogout }) {
         {/* Platform Title & Subtitle */}
         <div className="flex flex-col justify-center min-w-0">
           <h1 className="text-base sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight leading-tight truncate">
-            Retail Loss Prevention & Security Intelligence
+            Loss Prevention & Security Intelligence
           </h1>
           <p className="text-[11.5px] sm:text-xs text-slate-500 font-medium mt-0.5 leading-snug">
             Real-time monitoring of checkout and loss analytics
